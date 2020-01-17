@@ -46,8 +46,7 @@ parser.add_argument('--session_label', help='The label of the session that shoul
                    'provided all sessions within a subject should be analyzed.',
                    nargs="+")
 parser.add_argument('--preprocessing_type', help='BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". ',choices=['HCP','fmriprep'],default='HCP')
-parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) outputs in seed analysis. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
-parser.add_argument('--stages',help='Which stages to run. Space separated list. ',nargs="+", choices=['rsfMRISeedAnalysis', 'Generatefsf'],default=['Generatefsf', 'rsfMRISeedAnalysis'])
+parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) outputs for network matrix estimation. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
 parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
 parser.add_argument('--parcellation_file', help='The CIFTI label file to use or used to parcellate the brain. ', default='NONE')
 parser.add_argument('--parcellation_name', help='Shorthand name of the CIFTI label file. ', default='NONE')
@@ -60,11 +59,16 @@ parser.add_argument('--motion_confounds',help='What type of motion confounds to 
 parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
 parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['Yes','YES','yes','No','NO','no'],default='Yes')
 parser.add_argument('--network_matrix_estimation', help="What method to employ for network matrix estimation. "
-                                                    " Choices are 'correlation' = correlation,'partial-correlation' = partial correlation,'ridge-partial-correlation' = regularized partial correlation, 
-                                                    " 'dynamic-time-warping' = dynamic time warping, 'tanget' = tanget, 'covariance' = covariance', 'sparse-inverse-covariance' = sparse inverse covariance, 
+                                                    " Choices are 'correlation' = correlation,'partial-correlation' = partial correlation,'ridge-partial-correlation' = regularized partial correlation, "
+                                                    " 'dynamic-time-warping' = dynamic time warping, 'tanget' = tanget, 'covariance' = covariance', 'sparse-inverse-covariance' = sparse inverse covariance, "
                                                     " 'group-sparse-covariance' = group sparse covariance, 'precision' = precision, 'coherence' = coherence, 'mutual-information' = mutual information, "
                                                     " 'canonical-correlation' = canonical correlation. ")
-parser.add_argument('--graph_theory',help="Where or not to output graph theoretical measures which include: efficiency, centrality, cost/degree, strength, density, ")
+parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures which include: efficiency, centrality, cost/degree, strength, and density. Choices are 'Yes' or 'No'.", choices = ['Yes','YES','yes','No','NO','no'])
+parser.add_argument('--wavelet',help="Whether or not to output wavelet matrices. Which includes functional connectivity range scales: Scale 1 (0.23-0.45 Hz), Scale 2 (0.11-0.23 Hz), Scale 3 (0.06-0.11 Hz), Scale 4 (0.03-0.06 Hz), Scale 5 (0.01-0.03 Hz), Scale 6 (0.007-0.01 Hz). Choices are 'Yes' or 'No'.", 
+                    choices = ['Yes','YES','yes','No','NO','no'])
+parser.add_argument('--entropy',help="Whether or not to output entropy matrices. Which includes functional connectivity range scales: Scale 1 (0.23-0.45 Hz), Scale 2 (0.11-0.23 Hz), Scale 3 (0.06-0.11 Hz), Scale 4 (0.03-0.06 Hz), Scale 5 (0.01-0.03 Hz), Scale 6 (0.007-0.01 Hz). Choices are 'Yes' or 'No'.", 
+                    choices = ['Yes','YES','yes','No','NO','no'])
+
 args = parser.parse_args()
 
 # global variables
