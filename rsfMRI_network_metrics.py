@@ -1,4 +1,4 @@
-#!/opt/Anaconda2/bin/python
+#!/opt/Anaconda3/bin/python
 
 import nibabel.cifti2
 import pandas as pd
@@ -10,9 +10,7 @@ import csv
 import numpy as np
 from nilearn.connectome import ConnectivityMeasure
 from sklearn.covariance import GraphicalLassoCV
-
-
-
+import bct
 
 class NetworkIO:
     def __init__(self,output_dir,cifti_file, parcel_file, parcel_name, method):
@@ -110,7 +108,19 @@ class NetworkIO:
             network_matrix = measure.fit_transform([cifti_np_array])[0]
         vectorized_network_matrix = network_matrix[np.triu_indices(network_matrix.shape[0],k=1)]
 
-        return vectorized_network_matrix 
+        self.network_matrix = network_matrix
+        self.vectorized_network_matrix = vectorized_network_matrix
+    
+    def create_graph_theory_outputs(self,graph_theory_outputs):
+        #local efficiency, strength, average path distance, betweeness centrality, local density, degree centrality, cost centrality, eigenvector centrality, clustering coefficient
+        
+        #betweeness centrality
+        #bct.centrality.betweenness_wei(self.network_matrix) # if weighted connection matrix
+        #bct.centrality.betweenness_bin(self.network_matrix) #  if binary connection matrix 
+        
+        
+        pass
+    
     def create_text_output(self,ICAstring,text_output_dir,text_output_format,level):
         print('\n')
         print('rsfMRI_network_metrics.py: Create Text Output ')
