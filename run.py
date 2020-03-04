@@ -1,4 +1,4 @@
-#!/opt/Anaconda3/bin/python
+#!/opt/Miniconda3/bin/python
 
 from __future__ import print_function
 import argparse

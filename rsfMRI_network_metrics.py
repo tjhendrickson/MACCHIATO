@@ -1,4 +1,4 @@
-#!/opt/Anaconda3/bin/python
+#!/opt/Miniconda3/bin/python
 
 import nibabel.cifti2
 import pandas as pd
