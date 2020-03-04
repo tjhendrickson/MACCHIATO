@@ -10,6 +10,7 @@ import csv
 import numpy as np
 from nilearn.connectome import ConnectivityMeasure
 from sklearn.covariance import GraphicalLassoCV
+import scipy.linalg as la
 import bct
 
 class NetworkIO:
@@ -112,13 +113,34 @@ class NetworkIO:
         self.vectorized_network_matrix = vectorized_network_matrix
     
     def create_graph_theory_outputs(self,graph_theory_outputs):
-        #local efficiency, strength, average path distance, betweeness centrality, local density, degree centrality, cost centrality, eigenvector centrality, clustering coefficient
+        #local efficiency, strength, node betweeness centrality, edge betweenness centrality local density, eigenvector centrality, clustering coefficient
         
-        #betweeness centrality
-        #bct.centrality.betweenness_wei(self.network_matrix) # if weighted connection matrix
-        #bct.centrality.betweenness_bin(self.network_matrix) #  if binary connection matrix 
+        # ensure that data does not have NaNs or Infs, place diagnonal to zero, and restrict floating point to five decimals for stability
+        self.network_matrix[np.where(np.isinf(self.network_matrix))] = 0
+        self.network_matrix[np.where(np.isnan(self.network_matrix))] = 0
+        self.network_matrix[np.triu_indices(self.network_matrix.shape[0],k=1)]
+        self.network_matrix = np.around(self.network_matrix, decimal=5)
         
+        # convert matrix to lengths
+        lengths_network_matrix = bct.weight_conversion(self.network_matrix,'lengths')
         
+        # node betweeness centrality
+        node_centrality_betweenness = bct.centrality.betweenness_wei(lengths_network_matrix) 
+        
+        # edge betweeness centrality
+        edge_centrality_betweenness = bct.centrality.edge_betweenness_wei(lengths_network_matrix)
+        
+        # eigenvector centrality
+        eigenvector_centrality = bct.eigenvector_centrality_und(self.network_matrix)
+        
+        #local efficiency
+        local_efficiency = bct.efficiency_wei(self.network_matrix,local=True)
+        
+        #node strength
+        strength = bct.strengths_und(self.network_matrix)
+        
+        #clustering coefficent
+        clustering_coef = bct.clustering_coef_wu(self.network_matrix)
         pass
     
     def create_text_output(self,ICAstring,text_output_dir,text_output_format,level):

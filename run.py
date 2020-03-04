@@ -12,8 +12,7 @@ from bids.grabbids import BIDSLayout
 from functools import partial
 from collections import OrderedDict
 import pdb
-from sklearn import cross_decomposition, covariance
-import pandas as pd
+from rsfMRI_network_metrics import NetworkIO
 
 def run(command, env={}, cwd=None):
     merged_env = os.environ
@@ -34,17 +33,6 @@ def run(command, env={}, cwd=None):
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('input_dir', help='The directory where the preprocessed derivative needed live')
 parser.add_argument('output_dir', help='The directory where the output files should be stored.')
-parser.add_argument('--participant_label', help='The label of the participant that should be analyzed. The label '
-                   'corresponds to sub-<participant_label> from the BIDS spec '
-                   '(so it does not include "sub-"). If this parameter is not '
-                   'provided all subjects should be analyzed. Multiple '
-                   'participants can be specified with a space separated list.',
-                   nargs="+")
-parser.add_argument('--session_label', help='The label of the session that should be analyzed. The label '
-                   'corresponds to ses-<session_label> from the BIDS spec '
-                   '(so it does not include "ses-"). If this parameter is not '
-                   'provided all sessions within a subject should be analyzed.',
-                   nargs="+")
 parser.add_argument('--preprocessing_type', help='BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". ',choices=['HCP','fmriprep'],default='HCP')
 parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) outputs for network matrix estimation. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
 parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
@@ -59,14 +47,19 @@ parser.add_argument('--motion_confounds',help='What type of motion confounds to 
 parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
 parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['Yes','YES','yes','No','NO','no'],default='Yes')
 parser.add_argument('--network_matrix_estimation', help="What method to employ for network matrix estimation. "
-                                                    " Choices are 'correlation' = correlation,'partial-correlation' = partial correlation, "
-                                                    " 'dynamic-time-warping' = dynamic time warping, 'tangent' = tangent, 'covariance' = covariance, 'sparse-inverse-covariance' = sparse inverse covariance, "
-                                                    "  'precision' = precision, 'sparse-inverse-precision' = sparse inverse precision. ", 
-                                                    choices = ['correlation','partial-correlation','dynamic-time-warping','tangent','covariance','precision','sparse-inverse-precision','sparse-inverse-covariance'],
-                                                    default='correlation')
-parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures which include: path length, clustering global efficiency, local efficiency, centrality, cost/degree, strength, and density. Choices are 'Yes' or 'No'.", choices = ['Yes','YES','yes','No','NO','no'])
+                                                    " Choices are 'All', 'correlation','partial_correlation', "
+                                                    " 'dynamic_time_warping', 'tangent', 'covariance', 'sparse_inverse_covariance', "
+                                                    "  'precision', 'sparse_inverse_precision'. ", 
+                                                    choices =['All','all','correlation','partial_correlation',
+                                                              'dynamic_time_warping','tangent','covariance',
+                                                              'precision','sparse_inverse_precision',
+                                                              'sparse_inverse_covariance'], default='correlation',nargs='+')
+parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'None'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','all','clustering_coefficient','local_efficiency','strength',
+'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','None','none'], default = 'none',nargs='+')
 parser.add_argument('--wavelet',help="Whether or not to output wavelet matrices which includes measures of entropy, strength, and diversity. Which includes functional connectivity range scales: Scale 1 (0.23-0.45 Hz), Scale 2 (0.11-0.23 Hz), Scale 3 (0.06-0.11 Hz), Scale 4 (0.03-0.06 Hz), Scale 5 (0.01-0.03 Hz), Scale 6 (0.007-0.01 Hz). Choices are 'Yes' or 'No'.", 
                     choices = ['Yes','YES','yes','No','NO','no'])
+parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
+
 
 args = parser.parse_args()
 
@@ -77,6 +70,7 @@ selected_reg_name = args.reg_name
 msm_all_reg_name = "MSMAll_2_d40_WRN"
 preprocessing_type = args.preprocessing_type
 motion_confounds = args.motion_confounds
+text_output_format = args.text_output_format
 
 if preprocessing_type == 'HCP':
     if not motion_confounds == 'NONE':
@@ -101,19 +95,43 @@ if args.use_ICA_outputs == 'yes' or args.use_ICA_outputs == 'Yes':
     ICAoutputs = 'YES'
 else:
     ICAoutputs = 'NO'
+# if all graph theory metrics are requested, transform arg from string to list
+if args.graph_theory == 'all' or args.graph_theory == 'All':
+    args.graph_theory = ['clustering_coefficient','local_efficiency','strength',
+'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality']
+if args.network_matrix_calculation == 'all' or args.network_matrix_calculation == 'All':
+    args.network_matrix_calculation = ['correlation','partial_correlation','dynamic_time_warping',
+                                       'tangent','covariance', 'precision',
+                                       'sparse_inverse_precision','sparse_inverse_covariance']
 
-# need a subject label in order to start
-if args.participant_label:
-    subject_label=args.participant_label[0]
-    layout = BIDSLayout(os.path.join(args.input_dir,'sub-'+subject_label))
+# check on arguments
+print("Running MACCHIATO ")
+layout = BIDSLayout(os.path.join(args.input_dir))
+if parcel_file == 'NONE':
+    print('\n')
+    raise ValueError('Parcellating output selected but no parcel file specified after argument "--parcellation_file". Exiting.')
 else:
-    raise ValueError('An argument must be specified for participant label. Quitting.')
-# if subject label has sessions underneath those need to be outputted into different directories
-if args.session_label:
-    ses_to_analyze = args.session_label
+    print('\t-Parcellation file to be used to parcellate outputs: %s' %str(parcel_file))
+if parcel_name == 'NONE':
+    print('\n')
+    raise ValueError('Parcellating output selected but no parcel name specified after argument "--parcellation_name". Exiting.')
 else:
-    ses_to_analyze = layout.get_sessions(subject=subject_label)
+    print('\t-Short hand parcellation name to be used: %s' %str(parcel_name))
+print('\t-Network matrix metric/s to compute: %s' %(args.network_matrix_calculation))
+print("\t-Whether or not to compute Fisher's r-to-z transform to network matrices: %s" %(args.apply_Fishers_r_to_z_transform))
+print('\t-Whether or not to perform wavelet entropy on matrices: %s' %(args.wavelet))
+print('\t-Graph theory metric/s to compute: %s' %(args.graph_theory))
+print('\t-Input registration file to be used: %s' %str(selected_reg_name))
+print('\t-Whether motion confounds will be used for output: %s' %str(motion_confounds))
+print('\t-The preprocessing pipeline that the input comes from: %s' %str(preprocessing_type))
+print('\t-Use ICA outputs: %s' %str(ICAoutputs))
+print('\t-Use mixed effects if multiple of same acquisition: %s' %str(args.combine_resting_scans))
+print('\t-Text output format: %s' %str(args.text_output_format))
+print('\n')
 
+
+
+# old code
 if ses_to_analyze:
     for ses_label in ses_to_analyze:
         # set output folder path
@@ -260,4 +278,127 @@ else:
         elif preprocessing_type == 'fmriprep':
             bold_ref = bolds_ref[idx]
             vol_fmritcs="NONE"
+# new code       
+if args.combine_resting_scans == 'No' or args.combine_resting_scans == 'no':
+    if preprocessing_type == 'HCP':
+        # use ICA outputs
+        if ICAoutputs == 'YES':
+            ICAstring="_FIXclean"
+            if selected_reg_name == msm_all_reg_name:
+                bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest') if msm_all_reg_name+'_hp2000_clean' in f.filename]
+            else:
+                bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest') if '_hp2000_clean' and not msm_all_reg_name in f.filename]
+        # do not use ICA outputs
+        else:
+            ICAstring=""
+            if selected_reg_name == msm_all_reg_name:
+                bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest') if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+            else:
+                bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
+    elif preprocessing_type == 'fmriprep':
+        #use ICA outputs
+        if ICAoutputs == 'YES':
+            ICAstring="_AROMAclean"
+            bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
+        # do not use ICA outputs
+        else:
+            ICAstring=""
+            bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
+        bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
+    multiproc_pool.map(partial(run_CORTADO,ICAstring=ICAstring, 
+                               preprocessing_type=preprocessing_type,
+                               highpass=highpass,
+                               lowreshmesh=lowresmesh,
+                               highresmesh=highresmesh,
+                               smoothing=smoothing,
+                               parcel_file=parcel_file,
+                               parcel_name=parcel_name,
+                               seed_ROI_name=seed_ROI_name,
+                               seed_handling=seed_handling,
+                               seed_analysis_output=seed_analysis_output,
+                               text_output_format=text_output_format,
+                               selected_reg_name=selected_reg_name,
+                               motion_confounds=motion_confounds,
+                               ICAoutputs=ICAoutputs,
+                               combine_resting_scans=args.combine_resting_scans,
+                               output_dir=args.output_dir),
+                sorted(bolds))
+else:
+    combined_bolds_list = []
+    if layout.get_sessions() > 0:
+        for scanning_session in layout.get_sessions():
+            if preprocessing_type == 'HCP':
+                # use ICA outputs
+                if ICAoutputs == 'YES':
+                    ICAstring="_FIXclean"
+                    if selected_reg_name == msm_all_reg_name:
+                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest',session=scanning_session) if msm_all_reg_name+'_hp2000_clean' in f.filename]
+                    else:
+                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest',session=scanning_session) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
+                # do not use ICA outputs
+                else:
+                    ICAstring=""
+                    if selected_reg_name == msm_all_reg_name:
+                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',session=scanning_session) if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                    else:
+                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
+            elif preprocessing_type == 'fmriprep':
+                #use ICA outputs
+                if ICAoutputs == 'YES':
+                    ICAstring="_AROMAclean"
+                    bolds = [f.filename for f in layout.get(type='bold',task='rest',session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
+                # do not use ICA outputs
+                else:
+                    ICAstring=""
+                    bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
+                bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
+            if len(bolds) >= 2:
+                combined_bolds_list.append(bolds)
+    else:
+        for scanning_session in layout.get_subjects():
+            if preprocessing_type == 'HCP':
+                # use ICA outputs
+                if ICAoutputs == 'YES':
+                    ICAstring="_FIXclean"
+                    if selected_reg_name == msm_all_reg_name:
+                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=scanning_session) if msm_all_reg_name+'_hp2000_clean' in f.filename]
+                    else:
+                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=scanning_session) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
+                # do not use ICA outputs
+                else:
+                    ICAstring=""
+                    if selected_reg_name == msm_all_reg_name:
+                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=scanning_session) if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                    else:
+                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=scanning_session) if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
+            elif preprocessing_type == 'fmriprep':
+                #use ICA outputs
+                if ICAoutputs == 'YES':
+                    ICAstring="_AROMAclean"
+                    bolds = [f.filename for f in layout.get(type='bold',task='rest',subject=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
+                # do not use ICA outputs
+                else:
+                    ICAstring=""
+                    bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
+                bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
+            if len(bolds) >= 2:
+                combined_bolds_list.append(bolds)
+    multiproc_pool.map(partial(run_CORTADO,ICAstring=ICAstring, 
+                               output_dir=args.output_dir,
+                               preprocessing_type=preprocessing_type,
+                               highpass=highpass,
+                               lowreshmesh=lowresmesh,
+                               highresmesh=highresmesh,
+                               smoothing=smoothing,
+                               parcel_file=parcel_file,
+                               parcel_name=parcel_name,
+                               seed_ROI_name=seed_ROI_name,
+                               seed_handling=seed_handling,
+                               seed_analysis_output=seed_analysis_output,
+                               text_output_format=text_output_format,
+                               selected_reg_name=selected_reg_name,
+                               motion_confounds=motion_confounds,
+                               ICAoutputs=ICAoutputs,
+                               combine_resting_scans=args.combine_resting_scans), 
+                sorted(combined_bolds_list))
     

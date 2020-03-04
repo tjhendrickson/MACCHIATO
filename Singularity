@@ -39,7 +39,7 @@ cd /opt
 wget https://repo.continuum.io/archive/Anaconda3-2019.10-Linux-x86_64.sh -O /opt/Anaconda3.sh
 bash /opt/Anaconda3.sh -b -p /opt/Anaconda3
 export PATH="/opt/Anaconda3/bin:${PATH}"
-/opt/Anaconda3/bin/pip install nibabel cifti pandas sklearn
+/opt/Anaconda3/bin/pip install scipy nibabel cifti pandas sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476
 
 # Install the validator 0.26.11, along with pybids 0.6.0
 apt-get update
