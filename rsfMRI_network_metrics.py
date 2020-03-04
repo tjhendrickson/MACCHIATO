@@ -14,7 +14,7 @@ import scipy.linalg as la
 import bct
 
 class NetworkIO:
-    def __init__(self,output_dir,cifti_file, parcel_file, parcel_name, method):
+    def __init__(self,output_dir,cifti_file, parcel_file, parcel_name):
         # path that data will be written to
         self.output_dir = output_dir
         # inputted cifti file
@@ -23,8 +23,6 @@ class NetworkIO:
         self.parcel_file = parcel_file
         # shorthand name chosen for parcel file
         self.parcel_name = parcel_name
-        # method of network matrix to be outputted (i.e. correlation, covariance, partial correlation, etc)
-        self.method = method
         
         # create output folder if it does not exist
         if not os.path.isdir(self.output_dir):
@@ -43,12 +41,14 @@ class NetworkIO:
                         parcel_labels.append(parcel_file_label_tuple[value][0])
         self.parcel_labels = [str(r) for r in parcel_labels]
 
-    def create_network_matrix(self):
+    def create_network_matrix(self,method):
         print('\n')
         print('rsfMRI_network_metrics.py: Create network matrix ')
         print('\t-Output folder: ' + self.output_dir)
         print('\t-Cifti file: ' + self.cifti_file)
         print('\t-Parcel file: ' + self.parcel_file)
+        # method of network matrix to be outputted (i.e. correlation, covariance, partial correlation, etc)
+        self.method = method
         print('\t-Network matrix method/type: ' + str(self.method))
         
         # does CIFTI file exist?

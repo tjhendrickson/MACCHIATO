@@ -13,6 +13,10 @@ from functools import partial
 from collections import OrderedDict
 import pdb
 from rsfMRI_network_metrics import NetworkIO
+from multiprocessing import Pool, Lock
+import time
+
+l = Lock()
 
 def run(command, env={}, cwd=None):
     merged_env = os.environ
@@ -59,11 +63,10 @@ parser.add_argument('--graph_theory',help="Whether or not to output graph theore
 parser.add_argument('--wavelet',help="Whether or not to output wavelet matrices which includes measures of entropy, strength, and diversity. Which includes functional connectivity range scales: Scale 1 (0.23-0.45 Hz), Scale 2 (0.11-0.23 Hz), Scale 3 (0.06-0.11 Hz), Scale 4 (0.03-0.06 Hz), Scale 5 (0.01-0.03 Hz), Scale 6 (0.007-0.01 Hz). Choices are 'Yes' or 'No'.", 
                     choices = ['Yes','YES','yes','No','NO','no'])
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
-
-
 args = parser.parse_args()
 
 # global variables
+output_dir = args.output_dir
 parcel_file = args.parcellation_file
 parcel_name = args.parcellation_name
 selected_reg_name = args.reg_name
@@ -103,7 +106,6 @@ if args.network_matrix_calculation == 'all' or args.network_matrix_calculation =
     args.network_matrix_calculation = ['correlation','partial_correlation','dynamic_time_warping',
                                        'tangent','covariance', 'precision',
                                        'sparse_inverse_precision','sparse_inverse_covariance']
-
 # check on arguments
 print("Running MACCHIATO ")
 layout = BIDSLayout(os.path.join(args.input_dir))
@@ -130,7 +132,105 @@ print('\t-Text output format: %s' %str(args.text_output_format))
 print('\n')
 
 
+def run_MACCHIATO(bold):
+    if combine_resting_scans == 'No' or combine_resting_scans == 'no':
+        fmritcs = bold
+        level_2_foldername = 'NONE'
+        if 'ses' in fmritcs:
+            subject_label = fmritcs.split('sub-')[1].split('/')[0]
+            ses_label = fmritcs.split('ses-')[1].split('/')[0]
+            # set output folder path
+            outdir=output_dir + "/sub-%s/ses-%s" % (subject_label, ses_label)
+        else:
+            subject_label = fmritcs.split('sub-')[1].split('/')[0]
+            outdir=output_dir + "/sub-%s" % (subject_label)
+        if not os.path.isfile(os.path.join(outdir,
+                                           os.path.basename(fmritcs).split('.')[0] +
+                                           '_'+parcel_name+'.ptseries.nii')):
+            if preprocessing_type == 'HCP':
+                if ICAoutputs == 'YES':
+                    if selected_reg_name == msm_all_reg_name:
+                        vol_fmritcs=fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
+                    else:
+                        vol_fmritcs=fmritcs.replace('_Atlas_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
+                else:
+                    if selected_reg_name == msm_all_reg_name:
+                        vol_fmritcs = fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii','_hp2000.nii.gz')
+                    else:
+                        vol_fmritcs = fmritcs.replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
+                zooms = nibabel.load(vol_fmritcs).get_header().get_zooms()
+                fmrires = str(int(min(zooms[:3])))
+                shortfmriname=fmritcs.split("/")[-2]
+                # create confounds if dvars or fd selected
+                if motion_confounds_filename == 'Movement_dvars.txt':
+                    os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
+                                    " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
+                                        ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --dvars")
+                elif motion_confounds_filename == 'Movement_fd.txt':
+                    os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
+                                    " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
+                                        ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --fd")
+                # create full path to confounds file if not 'NONE'
+                if motion_confounds_filename != 'NONE' and ICAoutputs == 'YES':
+                    if selected_reg_name == msm_all_reg_name:
+                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii',motion_confounds_filename)
+                    else:
+                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000_clean.dtseries.nii',motion_confounds_filename)
+                elif motion_confounds_filename != 'NONE' and ICAoutputs == 'NO':
+                    if selected_reg_name == msm_all_reg_name:
+                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii',motion_confounds_filename)
+                    else:
+                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000.dtseries.nii',motion_confounds_filename)
+                fmriname = os.path.basename(fmritcs).split(".")[0]
+                assert fmriname
+            elif preprocessing_type == 'fmriprep':
+                pass
+            Network_init = NetworkIO(output_dir,fmritcs,parcel_file,parcel_name,
+                                     args.network_matrix_calculation)
+        else:
+            print('data already exists within: ' +outdir)
+    else:
+        level_2_foldername = 'rsfMRI_combined'
+        fmrinames = []
+        fmritcs = bold[0]
+        if 'ses' in fmritcs:
+            subject_label = fmritcs.split('sub-')[1].split('/')[0]
+            ses_label = fmritcs.split('ses-')[1].split('/')[0]
+            # set output folder path
+            outdir=output_dir + "/sub-%s/ses-%s" % (subject_label, ses_label)
+        else:
+            subject_label = fmritcs.split('sub-')[1].split('/')[0]
+            outdir=output_dir + "/sub-%s" % (subject_label)
+        if not os.path.isfile(os.path.join(outdir,'rsfMRI_combined_hp200_s4_level2.fsf')):
+            for fmritcs in bold:
+                pass # call to rsfMRI_network_metrics or to internal single run function
+                fmriname = os.path.basename(fmritcs).split(".")[0] 
+                fmrinames.append(fmriname)
+            #retrieve subject and session numbers
+            if 'ses' in bold[0]:
+                subject_label = fmritcs.split('sub-')[1].split('/')[0]
+                ses_label = fmritcs.split('ses-')[1].split('/')[0]
+                # set output folder path
+                outdir = output_dir + "/sub-%s/ses-%s" % (subject_label, ses_label)
+            else:
+                subject_label = fmritcs.split('sub-')[1].split('/')[0]
+                outdir = output_dir + "/sub-%s" % (subject_label)
+            if preprocessing_type == 'HCP':
+                if ICAoutputs == 'YES':
+                    if selected_reg_name == msm_all_reg_name:
+                        vol_fmritcs = bold[0].replace('_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
+                    else:
+                        vol_fmritcs = bold[0].replace('_Atlas_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
+                else:
+                    if selected_reg_name == msm_all_reg_name:
+                        vol_fmritcs = bold[0].replace('_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii','_hp2000.nii.gz')
+                    else:
+                        vol_fmritcs = bold[0].replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
+                zooms = nibabel.load(vol_fmritcs).get_header().get_zooms()
+                fmrires = str(int(min(zooms[:3])))
+                pass # call to rsfMRI_network_metrics
 
+        
 # old code
 if ses_to_analyze:
     for ses_label in ses_to_analyze:
