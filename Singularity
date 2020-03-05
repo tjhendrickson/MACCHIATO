@@ -39,7 +39,8 @@ cd /opt
 wget https://repo.anaconda.com/miniconda/Miniconda3-4.7.12.1-Linux-x86_64.sh -O /opt/Miniconda3.sh
 bash /opt/Miniconda3.sh -b -p /opt/Miniconda3
 export PATH="/opt/Miniconda3/bin:${PATH}"
-/opt/Miniconda3/bin/pip install scipy numpy nibabel cifti pandas sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476 PyWavelets nilearn
+/opt/Miniconda3/bin/conda install -y scipy numpy pandas h5py
+/opt/Miniconda3/bin/pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476
 
 # Install the validator 0.26.11, along with pybids 0.6.0
 apt-get update

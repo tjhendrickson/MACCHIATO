@@ -16,8 +16,6 @@ from rsfMRI_network_metrics import NetworkIO
 from multiprocessing import Pool, Lock
 import time
 
-l = Lock()
-
 def run(command, env={}, cwd=None):
     merged_env = os.environ
     merged_env.update(env)
@@ -50,7 +48,7 @@ parser.add_argument('--motion_confounds',help='What type of motion confounds to 
                                         choices = ['NONE','Movement_Regressors','Movement_Regressors_dt','Movement_RelativeRMS','Movement_RelativeRMS_mean','Movement_AbsoluteRMS','Movement_AbsoluteRMS_mean','dvars','fd'],default='NONE')
 parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
 parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['Yes','YES','yes','No','NO','no'],default='Yes')
-parser.add_argument('--network_matrix_estimation', help="What method to employ for network matrix estimation. "
+parser.add_argument('--network_matrix_calculation', help="What method to employ for network matrix estimation. "
                                                     " Choices are 'All', 'correlation','partial_correlation', "
                                                     " 'dynamic_time_warping', 'tangent', 'covariance', 'sparse_inverse_covariance', "
                                                     "  'precision', 'sparse_inverse_precision'. ", 
@@ -59,9 +57,9 @@ parser.add_argument('--network_matrix_estimation', help="What method to employ f
                                                               'precision','sparse_inverse_precision',
                                                               'sparse_inverse_covariance'], default='correlation',nargs='+')
 parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'None'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','all','clustering_coefficient','local_efficiency','strength',
-'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','None','none'], default = 'none',nargs='+')
+'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','None','none','NONE'], default = 'NONE',nargs='+')
 parser.add_argument('--wavelet',help="Whether or not to output wavelet matrices which includes measures of entropy, strength, and diversity. Which includes functional connectivity range scales: Scale 1 (0.23-0.45 Hz), Scale 2 (0.11-0.23 Hz), Scale 3 (0.06-0.11 Hz), Scale 4 (0.03-0.06 Hz), Scale 5 (0.01-0.03 Hz), Scale 6 (0.007-0.01 Hz). Choices are 'Yes' or 'No'.", 
-                    choices = ['Yes','YES','yes','No','NO','no'])
+                    choices = ['Yes','YES','yes','No','NO','no'],default='No')
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
 
@@ -73,7 +71,7 @@ selected_reg_name = args.reg_name
 msm_all_reg_name = "MSMAll_2_d40_WRN"
 preprocessing_type = args.preprocessing_type
 motion_confounds = args.motion_confounds
-text_output_format = args.text_output_format
+combine_resting_scans = args.combine_resting_scans
 
 if preprocessing_type == 'HCP':
     if not motion_confounds == 'NONE':
@@ -107,8 +105,8 @@ if args.network_matrix_calculation == 'all' or args.network_matrix_calculation =
                                        'tangent','covariance', 'precision',
                                        'sparse_inverse_precision','sparse_inverse_covariance']
 # check on arguments
-print("Running MACCHIATO ")
 layout = BIDSLayout(os.path.join(args.input_dir))
+print("Running MACCHIATO ")
 if parcel_file == 'NONE':
     print('\n')
     raise ValueError('Parcellating output selected but no parcel file specified after argument "--parcellation_file". Exiting.')
@@ -128,11 +126,14 @@ print('\t-Whether motion confounds will be used for output: %s' %str(motion_conf
 print('\t-The preprocessing pipeline that the input comes from: %s' %str(preprocessing_type))
 print('\t-Use ICA outputs: %s' %str(ICAoutputs))
 print('\t-Use mixed effects if multiple of same acquisition: %s' %str(args.combine_resting_scans))
-print('\t-Text output format: %s' %str(args.text_output_format))
 print('\n')
 
+l = Lock()
+multiproc_pool = Pool(int(args.num_cpus))
 
-def run_MACCHIATO(bold):
+def run_MACCHIATO(bold,ICAstring,preprocessing_type,parcel_file,parcel_name,
+                  selected_reg_name,motion_confounds,ICAoutputs,network_matrix_calculation,
+                  combine_resting_scans,output_dir):
     if combine_resting_scans == 'No' or combine_resting_scans == 'no':
         fmritcs = bold
         level_2_foldername = 'NONE'
@@ -158,8 +159,6 @@ def run_MACCHIATO(bold):
                         vol_fmritcs = fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii','_hp2000.nii.gz')
                     else:
                         vol_fmritcs = fmritcs.replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
-                zooms = nibabel.load(vol_fmritcs).get_header().get_zooms()
-                fmrires = str(int(min(zooms[:3])))
                 shortfmriname=fmritcs.split("/")[-2]
                 # create confounds if dvars or fd selected
                 if motion_confounds_filename == 'Movement_dvars.txt':
@@ -185,8 +184,9 @@ def run_MACCHIATO(bold):
                 assert fmriname
             elif preprocessing_type == 'fmriprep':
                 pass
-            Network_init = NetworkIO(output_dir,fmritcs,parcel_file,parcel_name,
-                                     args.network_matrix_calculation)
+            pdb.set_trace()
+            Network_init = NetworkIO(output_dir,fmritcs,parcel_file,parcel_name)
+            Network_init.create_network_matrix(method=network_matrix_calculation)
         else:
             print('data already exists within: ' +outdir)
     else:
@@ -228,157 +228,7 @@ def run_MACCHIATO(bold):
                         vol_fmritcs = bold[0].replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
                 zooms = nibabel.load(vol_fmritcs).get_header().get_zooms()
                 fmrires = str(int(min(zooms[:3])))
-                pass # call to rsfMRI_network_metrics
-
-        
-# old code
-if ses_to_analyze:
-    for ses_label in ses_to_analyze:
-        # set output folder path
-        outdir=args.output_dir + "/sub-%s/ses-%s" % (subject_label, ses_label)
-        if preprocessing_type == 'HCP':
-            # use ICA outputs
-            if ICAoutputs == 'YES':
-                if selected_reg_name == msm_all_reg_name:
-                    bolds = [f.filename for f in layout.get(subject=subject_label, session=ses_label,type='clean',
-                                                            extensions="dtseries.nii", task='rest',) if msm_all_reg_name+'_hp2000_clean' in f.filename]
-                else:
-                    bolds = [f.filename for f in layout.get(subject=subject_label, session=ses_label,type='clean',
-                                                            extensions="dtseries.nii", task='rest',) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
-
-            # do not use ICA outputs
-            else:
-                if selected_reg_name == msm_all_reg_name:
-                    bolds = [f.filename for f in layout.get(subject=subject_label, session=ses_label,
-                                                            extensions="dtseries.nii", task='rest') if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
-                else:
-                    bolds = [f.filename for f in layout.get(subject=subject_label, session=ses_label,
-                                                            extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
-
-        elif preprocessing_type == 'fmriprep':
-            #use ICA outputs
-            if ICAoutputs == 'YES':
-                bolds = [f.filename for f in layout.get(subject=subject_label,session=ses_label,type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
-            # do not use ICA outputs
-            else:
-                bolds = [f.filename for f in layout.get(subject=subject_label,session=ses_label,type='bold',task='rest') if 'preproc' in f.filename]
-            # will need bold reference images
-            bolds_ref = [f.filename for f in layout.get(subject=subject_label,session=ses_label,type='boldref',task='rest')]
-        for idx,fmritcs in enumerate(bolds):
-            if preprocessing_type == 'HCP':
-                if ICAoutputs == 'YES':
-                    if selected_reg_name == msm_all_reg_name:
-                        vol_fmritcs=fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-                    else:
-                        vol_fmritcs=fmritcs.replace('_Atlas_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-                else:
-                    if selected_reg_name == msm_all_reg_name:
-                        vol_fmritcs = fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii','_hp2000.nii.gz')
-                    else:
-                        vol_fmritcs = fmritcs.replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
-                zooms = nibabel.load(vol_fmritcs).get_header().get_zooms()
-                fmrires = str(int(min(zooms[:3])))
-                shortfmriname=fmritcs.split("/")[-2]
-                # create confounds if dvars or fd selected
-                if motion_confounds_filename == 'Movement_dvars.txt':
-                    os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
-                                    " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
-                                        ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --dvars")
-                elif motion_confounds_filename == 'Movement_fd.txt':
-                    os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
-                                    " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
-                                        ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --fd")
-                # create full path to confounds file if not 'NONE'
-                if motion_confounds_filename != 'NONE' and ICAoutputs == 'YES':
-                    if selected_reg_name == msm_all_reg_name:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii',motion_confounds_filename)
-                    else:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000_clean.dtseries.nii',motion_confounds_filename)
-                elif motion_confounds_filename != 'NONE' and ICAoutputs == 'NO':
-                    if selected_reg_name == msm_all_reg_name:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii',motion_confounds_filename)
-                    else:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000.dtseries.nii',motion_confounds_filename)
-                fmriname = os.path.basename(fmritcs).split(".")[0]
-                assert fmriname
-                bold_ref = "NONE"
-            elif preprocessing_type == 'fmriprep':
-                #reference image
-                bold_ref = bolds_ref[idx]
-                vol_fmritcs='NONE'
-else:
-    outdir=args.output_dir + "/sub-%s" % (subject_label)
-    # retrieve preprocessing BIDS layout for participant specified
-    if preprocessing_type == 'HCP':
-        # use ICA outputs
-        if ICAoutputs == 'YES':
-            if selected_reg_name == msm_all_reg_name:
-                bolds = [f.filename for f in layout.get(subject=subject_label, type='clean',
-                                                        extensions="dtseries.nii", task='rest',) if msm_all_reg_name+'_hp2000_clean' in f.filename]
-            else:
-                bolds = [f.filename for f in layout.get(subject=subject_label, type='clean',
-                                                        extensions="dtseries.nii", task='rest',) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
-        # do not use ICA outputs
-        else:
-            if selected_reg_name == msm_all_reg_name:
-                bolds = [f.filename for f in layout.get(subject=subject_label,
-                                                        extensions="dtseries.nii", task='rest') if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
-            else:
-                bolds = [f.filename for f in layout.get(subject=subject_label,
-                                                        extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
-
-    elif preprocessing_type == 'fmriprep':
-        #use ICA outputs
-        if ICAoutputs == 'YES':
-            bolds = [f.filename for f in layout.get(subject=subject_label,type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
-        # do not use ICA outputs
-        else:
-            bolds = [f.filename for f in layout.get(subject=subject_label,type='bold',task='rest') if 'preproc' in f.filename]
-        bolds_ref = [f.filename for f in layout.get(subject=subject_label,session=ses_label,type='boldref',task='rest')]
-    for idx,fmritcs in enumerate(bolds):
-        if preprocessing_type == 'HCP':
-            if ICAoutputs == 'YES':
-                if selected_reg_name == msm_all_reg_name:
-                    vol_fmritcs=fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-                else:
-                    vol_fmritcs=fmritcs.replace('_Atlas_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-            else:
-                if selected_reg_name == msm_all_reg_name:
-                    vol_fmritcs = fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii','_hp2000.nii.gz')
-                else:
-                    vol_fmritcs = fmritcs.replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
-
-            zooms = nibabel.load(vol_fmritcs).get_header().get_zooms()
-            fmrires = str(int(min(zooms[:3])))
-            shortfmriname=fmritcs.split("/")[-2]
-            # create confounds if dvars or fd selected
-            if motion_confounds_filename == 'Movement_dvars.txt':
-                os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
-                        " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
-                        ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --dvars")
-            elif motion_confounds_filename == 'Movement_fd.txt':
-                os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
-                            " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
-                            ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --fd")
-            # create full path to confounds file if not 'NONE'
-            if motion_confounds_filename != 'NONE' and ICAoutputs == 'YES':
-                if selected_reg_name == msm_all_reg_name:
-                    motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii',motion_confounds_filename)
-                else:
-                    motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000_clean.dtseries.nii',motion_confounds_filename)
-            elif motion_confounds_filename != 'NONE' and ICAoutputs == 'NO':
-                if selected_reg_name == msm_all_reg_name:
-                    motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii',motion_confounds_filename)
-                else:
-                    motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000.dtseries.nii',motion_confounds_filename)
-
-            fmriname = fmritcs.path.basename.split(".")[0]
-            assert fmriname
-            bold_ref = "NONE"
-        elif preprocessing_type == 'fmriprep':
-            bold_ref = bolds_ref[idx]
-            vol_fmritcs="NONE"
-# new code       
+                pass # call to rsfMRI_network_metrics    
 if args.combine_resting_scans == 'No' or args.combine_resting_scans == 'no':
     if preprocessing_type == 'HCP':
         # use ICA outputs
@@ -405,24 +255,29 @@ if args.combine_resting_scans == 'No' or args.combine_resting_scans == 'no':
             ICAstring=""
             bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
         bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
-    multiproc_pool.map(partial(run_CORTADO,ICAstring=ICAstring, 
+    pdb.set_trace()
+    run_MACCHIATO(ICAstring=ICAstring, 
                                preprocessing_type=preprocessing_type,
-                               highpass=highpass,
-                               lowreshmesh=lowresmesh,
-                               highresmesh=highresmesh,
-                               smoothing=smoothing,
                                parcel_file=parcel_file,
                                parcel_name=parcel_name,
-                               seed_ROI_name=seed_ROI_name,
-                               seed_handling=seed_handling,
-                               seed_analysis_output=seed_analysis_output,
-                               text_output_format=text_output_format,
                                selected_reg_name=selected_reg_name,
                                motion_confounds=motion_confounds,
                                ICAoutputs=ICAoutputs,
-                               combine_resting_scans=args.combine_resting_scans,
-                               output_dir=args.output_dir),
+                               combine_resting_scans=combine_resting_scans,
+                               network_matrix_calculation=args.network_matrix_calculation,
+                               output_dir=output_dir, bold=bolds[0])
+    """
+    multiproc_pool.map(partial(run_MACCHIATO,ICAstring=ICAstring, 
+                               preprocessing_type=preprocessing_type,
+                               parcel_file=parcel_file,
+                               parcel_name=parcel_name,
+                               selected_reg_name=selected_reg_name,
+                               motion_confounds=motion_confounds,
+                               ICAoutputs=ICAoutputs,
+                               combine_resting_scans=combine_resting_scans,
+                               output_dir=output_dir),
                 sorted(bolds))
+    """
 else:
     combined_bolds_list = []
     if layout.get_sessions() > 0:
@@ -483,22 +338,15 @@ else:
                 bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
             if len(bolds) >= 2:
                 combined_bolds_list.append(bolds)
-    multiproc_pool.map(partial(run_CORTADO,ICAstring=ICAstring, 
-                               output_dir=args.output_dir,
+    multiproc_pool.map(partial(run_MACCHIATO,ICAstring=ICAstring, 
                                preprocessing_type=preprocessing_type,
-                               highpass=highpass,
-                               lowreshmesh=lowresmesh,
-                               highresmesh=highresmesh,
-                               smoothing=smoothing,
                                parcel_file=parcel_file,
                                parcel_name=parcel_name,
-                               seed_ROI_name=seed_ROI_name,
-                               seed_handling=seed_handling,
-                               seed_analysis_output=seed_analysis_output,
-                               text_output_format=text_output_format,
                                selected_reg_name=selected_reg_name,
                                motion_confounds=motion_confounds,
                                ICAoutputs=ICAoutputs,
-                               combine_resting_scans=args.combine_resting_scans), 
+                               combine_resting_scans=combine_resting_scans,
+                               network_matrix_calculation=args.network_matrix_calculation,
+                               output_dir=output_dir),
                 sorted(combined_bolds_list))
     

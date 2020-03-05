@@ -107,10 +107,10 @@ class NetworkIO:
                 network_matrix = measure.precision_
         else:
             network_matrix = measure.fit_transform([cifti_np_array])[0]
-        vectorized_network_matrix = network_matrix[np.triu_indices(network_matrix.shape[0],k=1)]
-
         self.network_matrix = network_matrix
-        self.vectorized_network_matrix = vectorized_network_matrix
+        # currently not vectorizing outputs, could come back to this later
+        #vectorized_network_matrix = network_matrix[np.triu_indices(network_matrix.shape[0],k=1)]
+        #self.vectorized_network_matrix = vectorized_network_matrix
     
     def create_graph_theory_outputs(self,graph_theory_outputs):
         #local efficiency, strength, node betweeness centrality, edge betweenness centrality local density, eigenvector centrality, clustering coefficient
@@ -143,7 +143,7 @@ class NetworkIO:
         clustering_coef = bct.clustering_coef_wu(self.network_matrix)
         pass
     
-    def create_text_output(self,ICAstring,text_output_dir,text_output_format,level):
+    def create_file_output(self,ICAstring,text_output_dir,level):
         print('\n')
         print('rsfMRI_network_metrics.py: Create Text Output ')
         print('\t-Text output folder: %s' %str(text_output_dir))
