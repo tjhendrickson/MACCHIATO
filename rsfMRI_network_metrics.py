@@ -32,7 +32,10 @@ class NetworkIO:
         
         #TODO: as the network matrices will be vectorized, a vector label will have to be created.
         # read parcel labels into list to query later
-        read_parcel_file = cifti.read(self.parcel_file)
+        try:
+            read_parcel_file = cifti.read(self.parcel_file)
+        except TypeError:
+            print('This does not look like a CIFTI parcel file. Must exit')
         parcel_file_label_tuple = read_parcel_file[1][0][0][1]
         parcel_labels = []
         
@@ -83,17 +86,16 @@ class NetworkIO:
             cifti_np_array = np.array(cifti_load.get_fdata())
         except:
             print("file does not look like a cifti file")
+         
         if self.method == 'correlation':
             #Pearson correlation coefficients with LedoitWolf covariance estimator
             measure = ConnectivityMeasure(kind='correlation')
         elif self.method == 'covariance':
             #LedoitWolf estimator
             measure = ConnectivityMeasure(kind='covariance')
-        elif self.method == 'partial-correlation':
+        elif self.method == 'partial_correlation':
             # Partial correlation with LedoitWolf covariance estimator
             measure = ConnectivityMeasure(kind='partial correlation')
-        elif self.method == 'tangent':
-            measure = ConnectivityMeasure(kind='tangent')
         elif self.method == 'precision':
             measure = ConnectivityMeasure(kind='precision')
         elif 'sparse' in self.method:
@@ -143,11 +145,11 @@ class NetworkIO:
         clustering_coef = bct.clustering_coef_wu(self.network_matrix)
         pass
     
-    def create_file_output(self,ICAstring,text_output_dir,level):
+    def create_file_output(self,ICAstring,text_output_dir,level,data_output_format):
         print('\n')
         print('rsfMRI_network_metrics.py: Create Text Output ')
         print('\t-Text output folder: %s' %str(text_output_dir))
-        print('\t-Text output format: %s'%str(text_output_format))
+        print('\t-Data output format: %s'%str(data_output_format))
         print('\t-Cifti file: %s' %str(self.cifti_file))
         print('\t-Parcel file: %s' %str(self.parcel_file))
         print('\t-Parcel name: %s' %str(self.parcel_name))
@@ -159,7 +161,7 @@ class NetworkIO:
         # find vectorized network matrix
 
         # set outputs suffixes
-        if text_output_format == "CSV" or text_output_format == "csv":
+        if data_output_format == "NUMPY" or data_output_format == "numpy":
             # if file exists and subject and session have yet to be added, add to file
             output_text_file = os.path.join(text_output_dir,"_".join(self.fmriname.split('_')[2:])+"_"+self.parcel_name+ICAstring+'_level'+ str(level)+'_method'+self.method+".csv")
             # prevent race condition by using "try" statement

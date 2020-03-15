@@ -51,9 +51,9 @@ parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation ou
 parser.add_argument('--network_matrix_calculation', help="What method to employ for network matrix estimation. "
                                                     " Choices are 'All', 'correlation','partial_correlation', "
                                                     " 'dynamic_time_warping', 'tangent', 'covariance', 'sparse_inverse_covariance', "
-                                                    "  'precision', 'sparse_inverse_precision'. ", 
+                                                    "  'precision', 'sparse_inverse_precision'. NOTE: Specifying sparse matrices or dynamic time warping will result in increased computation time. For more information on available methods https://nilearn.github.io/connectivity/index.html#functional-connectivity-and-resting-state", 
                                                     choices =['All','all','correlation','partial_correlation',
-                                                              'dynamic_time_warping','tangent','covariance',
+                                                              'dynamic_time_warping','covariance',
                                                               'precision','sparse_inverse_precision',
                                                               'sparse_inverse_covariance'], default='correlation',nargs='+')
 parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'None'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','all','clustering_coefficient','local_efficiency','strength',
@@ -184,9 +184,14 @@ def run_MACCHIATO(bold,ICAstring,preprocessing_type,parcel_file,parcel_name,
                 assert fmriname
             elif preprocessing_type == 'fmriprep':
                 pass
-            pdb.set_trace()
             Network_init = NetworkIO(output_dir,fmritcs,parcel_file,parcel_name)
-            Network_init.create_network_matrix(method=network_matrix_calculation)
+            pdb.set_trace()
+            if len(network_matrix_calculation) == 1:
+                Network_init.create_network_matrix(method=network_matrix_calculation[0])
+            else:
+                for network_matrix in network_matrix_calculation:
+                    Network_init.create_network_matrix(method=network_matrix)
+                    
         else:
             print('data already exists within: ' +outdir)
     else:
@@ -255,7 +260,6 @@ if args.combine_resting_scans == 'No' or args.combine_resting_scans == 'no':
             ICAstring=""
             bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
         bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
-    pdb.set_trace()
     run_MACCHIATO(ICAstring=ICAstring, 
                                preprocessing_type=preprocessing_type,
                                parcel_file=parcel_file,
@@ -282,33 +286,35 @@ else:
     combined_bolds_list = []
     if layout.get_sessions() > 0:
         for scanning_session in layout.get_sessions():
-            if preprocessing_type == 'HCP':
-                # use ICA outputs
-                if ICAoutputs == 'YES':
-                    ICAstring="_FIXclean"
-                    if selected_reg_name == msm_all_reg_name:
-                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest',session=scanning_session) if msm_all_reg_name+'_hp2000_clean' in f.filename]
+            # retreive subject id that is associated with session id and parse data with subject and session id
+            for subject in layout.get_subjects(session=scanning_session):
+                if preprocessing_type == 'HCP':
+                    # use ICA outputs
+                    if ICAoutputs == 'YES':
+                        ICAstring="_FIXclean"
+                        if selected_reg_name == msm_all_reg_name:
+                            bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=subject,session=scanning_session) if msm_all_reg_name+'_hp2000_clean' in f.filename]
+                        else:
+                            bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
+                    # do not use ICA outputs
                     else:
-                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest',session=scanning_session) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
-                # do not use ICA outputs
-                else:
-                    ICAstring=""
-                    if selected_reg_name == msm_all_reg_name:
-                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',session=scanning_session) if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                        ICAstring=""
+                        if selected_reg_name == msm_all_reg_name:
+                            bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                        else:
+                            bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
+                elif preprocessing_type == 'fmriprep':
+                    #use ICA outputs
+                    if ICAoutputs == 'YES':
+                        ICAstring="_AROMAclean"
+                        bolds = [f.filename for f in layout.get(type='bold',task='rest',subject=subject,session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
+                    # do not use ICA outputs
                     else:
-                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
-            elif preprocessing_type == 'fmriprep':
-                #use ICA outputs
-                if ICAoutputs == 'YES':
-                    ICAstring="_AROMAclean"
-                    bolds = [f.filename for f in layout.get(type='bold',task='rest',session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
-                # do not use ICA outputs
-                else:
-                    ICAstring=""
-                    bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
-                bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
-            if len(bolds) >= 2:
-                combined_bolds_list.append(bolds)
+                        ICAstring=""
+                        bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
+                    bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
+                if len(bolds) == 2:
+                    combined_bolds_list.append(bolds)
     else:
         for scanning_session in layout.get_subjects():
             if preprocessing_type == 'HCP':
@@ -336,7 +342,7 @@ else:
                     ICAstring=""
                     bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
                 bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
-            if len(bolds) >= 2:
+            if len(bolds) == 2:
                 combined_bolds_list.append(bolds)
     multiproc_pool.map(partial(run_MACCHIATO,ICAstring=ICAstring, 
                                preprocessing_type=preprocessing_type,
