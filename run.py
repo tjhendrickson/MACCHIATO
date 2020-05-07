@@ -3,19 +3,14 @@
 from __future__ import print_function
 import argparse
 import os
-import nibabel
-import nibabel.cifti2 as ci
-from glob import glob
 from subprocess import Popen, PIPE
 import subprocess
-from bids.grabbids import BIDSLayout
-from functools import partial
-from collections import OrderedDict
-import pdb
-from rsfMRI_network_metrics import NetworkIO
 from multiprocessing import Pool, Lock
-import time
+from utils.find_bolds import create_bold_lists 
+from utils.workflow_logger import workflow_log
+from workflow.core import execute_MACCHIATO_instances
 
+# function which actually launches processes to underlying system
 def run(command, env={}, cwd=None):
     merged_env = os.environ
     merged_env.update(env)
@@ -32,9 +27,29 @@ def run(command, env={}, cwd=None):
     if process.returncode != 0:
         raise Exception("Non zero return code: %d"%process.returncode)
 
+            
+
+# specify arguments that MACCHIATO accepts
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('input_dir', help='The directory where the preprocessed derivative needed live')
 parser.add_argument('output_dir', help='The directory where the output files should be stored.')
+parser.add_argument('analysis_level', help='Level of the analysis that will be performed. ' 
+                    'If "group" is specified the tool will run through all available participants independently and output to same output directory. '
+                    'If "participant" is specified one must include arguments to "--subject_label" and --session_label".',
+                    choices=['group','participant'])
+parser.add_argument('--subject_label', help='The label of the participant that should be analyzed. The label '
+                    'corresponds to sub-<subject_label> from the BIDS spec '
+                    '(so it does not include "sub-"). If this parameter is not '
+                    'provided all subjects should be analyzed. Multiple '
+                    'participants can be specified with a space separated list.',
+                    nargs="+")
+parser.add_argument('--session_label', help='The label of the session that should be analyzed. The label '
+                    'corresponds to ses-<session_label> from the BIDS spec '
+                    '(so it does not include "ses-"). If this parameter is not '
+                    'provided all sessions should be analyzed. Multiple '
+                    'sessions can be specified with a space separated list.',
+                    nargs="+")
+
 parser.add_argument('--preprocessing_type', help='BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". ',choices=['HCP','fmriprep'],default='HCP')
 parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) outputs for network matrix estimation. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
 parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
@@ -63,296 +78,53 @@ parser.add_argument('--wavelet',help="Whether or not to output wavelet matrices 
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
 
-# global variables
-output_dir = args.output_dir
-parcel_file = args.parcellation_file
-parcel_name = args.parcellation_name
-selected_reg_name = args.reg_name
-msm_all_reg_name = "MSMAll_2_d40_WRN"
-preprocessing_type = args.preprocessing_type
-motion_confounds = args.motion_confounds
-combine_resting_scans = args.combine_resting_scans
+# now parse arguments and print to standard output (STDOUT)
+layout,motion_confounds_filename,ICA_outputs,graph_theory,network_matrix_calculation,combine_resting_scans,wavelet = workflow_log(preprocessing_type=args.preprocessing_type,
+                                                                                                    motion_confounds=args.motion_confounds,
+                                                                                                    ICA_outputs=args.use_ICA_outputs,
+                                                                                                    graph_theory=args.graph_theory,
+                                                                                                    network_matrix_calculation=args.network_matrix_calculation,
+                                                                                                    input_dir=args.input_dir,
+                                                                                                    parcel_name=args.parcel_name,
+                                                                                                    parce_file=args.parcel_file,
+                                                                                                    fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
+                                                                                                    selected_reg_name=args.reg_name,
+                                                                                                    wavelet=args.wavelet,
+                                                                                                    combine_resting_scans=args.combine_resting_scans)
 
-if preprocessing_type == 'HCP':
-    if not motion_confounds == 'NONE':
-        motion_confounds_dict = {'Movement_Regressors': 'Movement_Regressors.txt',
-        'Movement_Regressors_dt': 'Movement_Regressors_dt.txt',
-        'Movement_Regressors_demean': 'Movement_Regressors_demean.txt',
-        'Movement_RelativeRMS': 'Movement_RelativeRMS.txt',
-        'Movement_RelativeRMS_mean': 'Movement_RelativeRMS_mean.txt',
-        'Movement_AbsoluteRMS': 'Movement_AbsoluteRMS.txt',
-        'Movement_AbsoluteRMS_mean': 'Movement_AbsoluteRMS_mean.txt',
-        'dvars': 'Movement_dvars.txt',
-        'fd': 'Movement_fd.txt'}
-        motion_confounds_filename = motion_confounds_dict[motion_confounds]
-    else:
-        motion_confounds_filename = 'NONE'
-        motion_confounds_filepath = 'NONE'
-elif preprocessing_type == 'fmriprep' and motion_confounds != 'NONE':
-    pass
-
- # use ICA outputs
-if args.use_ICA_outputs == 'yes' or args.use_ICA_outputs == 'Yes':
-    ICAoutputs = 'YES'
-else:
-    ICAoutputs = 'NO'
-# if all graph theory metrics are requested, transform arg from string to list
-if args.graph_theory == 'all' or args.graph_theory == 'All':
-    args.graph_theory = ['clustering_coefficient','local_efficiency','strength',
-'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality']
-if args.network_matrix_calculation == 'all' or args.network_matrix_calculation == 'All':
-    args.network_matrix_calculation = ['correlation','partial_correlation','dynamic_time_warping',
-                                       'tangent','covariance', 'precision',
-                                       'sparse_inverse_precision','sparse_inverse_covariance']
-# check on arguments
-layout = BIDSLayout(os.path.join(args.input_dir))
-print("Running MACCHIATO ")
-if parcel_file == 'NONE':
-    print('\n')
-    raise ValueError('Parcellating output selected but no parcel file specified after argument "--parcellation_file". Exiting.')
-else:
-    print('\t-Parcellation file to be used to parcellate outputs: %s' %str(parcel_file))
-if parcel_name == 'NONE':
-    print('\n')
-    raise ValueError('Parcellating output selected but no parcel name specified after argument "--parcellation_name". Exiting.')
-else:
-    print('\t-Short hand parcellation name to be used: %s' %str(parcel_name))
-print('\t-Network matrix metric/s to compute: %s' %(args.network_matrix_calculation))
-print("\t-Whether or not to compute Fisher's r-to-z transform to network matrices: %s" %(args.apply_Fishers_r_to_z_transform))
-print('\t-Whether or not to perform wavelet entropy on matrices: %s' %(args.wavelet))
-print('\t-Graph theory metric/s to compute: %s' %(args.graph_theory))
-print('\t-Input registration file to be used: %s' %str(selected_reg_name))
-print('\t-Whether motion confounds will be used for output: %s' %str(motion_confounds))
-print('\t-The preprocessing pipeline that the input comes from: %s' %str(preprocessing_type))
-print('\t-Use ICA outputs: %s' %str(ICAoutputs))
-print('\t-Use mixed effects if multiple of same acquisition: %s' %str(args.combine_resting_scans))
-print('\n')
-
+# set up multiprocessing/parallelization allocation
 l = Lock()
 multiproc_pool = Pool(int(args.num_cpus))
 
-def run_MACCHIATO(bold,ICAstring,preprocessing_type,parcel_file,parcel_name,
-                  selected_reg_name,motion_confounds,ICAoutputs,network_matrix_calculation,
-                  combine_resting_scans,output_dir):
-    if combine_resting_scans == 'No' or combine_resting_scans == 'no':
-        fmritcs = bold
-        level_2_foldername = 'NONE'
-        if 'ses' in fmritcs:
-            subject_label = fmritcs.split('sub-')[1].split('/')[0]
-            ses_label = fmritcs.split('ses-')[1].split('/')[0]
-            # set output folder path
-            outdir=output_dir + "/sub-%s/ses-%s" % (subject_label, ses_label)
-        else:
-            subject_label = fmritcs.split('sub-')[1].split('/')[0]
-            outdir=output_dir + "/sub-%s" % (subject_label)
-        if not os.path.isfile(os.path.join(outdir,
-                                           os.path.basename(fmritcs).split('.')[0] +
-                                           '_'+parcel_name+'.ptseries.nii')):
-            if preprocessing_type == 'HCP':
-                if ICAoutputs == 'YES':
-                    if selected_reg_name == msm_all_reg_name:
-                        vol_fmritcs=fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-                    else:
-                        vol_fmritcs=fmritcs.replace('_Atlas_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-                else:
-                    if selected_reg_name == msm_all_reg_name:
-                        vol_fmritcs = fmritcs.replace('_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii','_hp2000.nii.gz')
-                    else:
-                        vol_fmritcs = fmritcs.replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
-                shortfmriname=fmritcs.split("/")[-2]
-                # create confounds if dvars or fd selected
-                if motion_confounds_filename == 'Movement_dvars.txt':
-                    os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
-                                    " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
-                                        ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --dvars")
-                elif motion_confounds_filename == 'Movement_fd.txt':
-                    os.system("${FSL_DIR}/bin/fsl_motion_outliers -i " + vol_fmritcs + \
-                                    " -o " + outdir + "/sub-" + subject_label + "/ses-" + \
-                                        ses_label + "/MNINonLinear/" + "Results/" + shortfmriname + "/" + motion_confounds_filename + " --fd")
-                # create full path to confounds file if not 'NONE'
-                if motion_confounds_filename != 'NONE' and ICAoutputs == 'YES':
-                    if selected_reg_name == msm_all_reg_name:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii',motion_confounds_filename)
-                    else:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000_clean.dtseries.nii',motion_confounds_filename)
-                elif motion_confounds_filename != 'NONE' and ICAoutputs == 'NO':
-                    if selected_reg_name == msm_all_reg_name:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii',motion_confounds_filename)
-                    else:
-                        motion_confounds_filepath = fmritcs.replace(shortfmriname+'_Atlas_hp2000.dtseries.nii',motion_confounds_filename)
-                fmriname = os.path.basename(fmritcs).split(".")[0]
-                assert fmriname
-            elif preprocessing_type == 'fmriprep':
-                pass
-            Network_init = NetworkIO(output_dir,fmritcs,parcel_file,parcel_name)
-            pdb.set_trace()
-            if len(network_matrix_calculation) == 1:
-                Network_init.create_network_matrix(method=network_matrix_calculation[0])
-            else:
-                for network_matrix in network_matrix_calculation:
-                    Network_init.create_network_matrix(method=network_matrix)
-                    
-        else:
-            print('data already exists within: ' +outdir)
-    else:
-        level_2_foldername = 'rsfMRI_combined'
-        fmrinames = []
-        fmritcs = bold[0]
-        if 'ses' in fmritcs:
-            subject_label = fmritcs.split('sub-')[1].split('/')[0]
-            ses_label = fmritcs.split('ses-')[1].split('/')[0]
-            # set output folder path
-            outdir=output_dir + "/sub-%s/ses-%s" % (subject_label, ses_label)
-        else:
-            subject_label = fmritcs.split('sub-')[1].split('/')[0]
-            outdir=output_dir + "/sub-%s" % (subject_label)
-        if not os.path.isfile(os.path.join(outdir,'rsfMRI_combined_hp200_s4_level2.fsf')):
-            for fmritcs in bold:
-                pass # call to rsfMRI_network_metrics or to internal single run function
-                fmriname = os.path.basename(fmritcs).split(".")[0] 
-                fmrinames.append(fmriname)
-            #retrieve subject and session numbers
-            if 'ses' in bold[0]:
-                subject_label = fmritcs.split('sub-')[1].split('/')[0]
-                ses_label = fmritcs.split('ses-')[1].split('/')[0]
-                # set output folder path
-                outdir = output_dir + "/sub-%s/ses-%s" % (subject_label, ses_label)
-            else:
-                subject_label = fmritcs.split('sub-')[1].split('/')[0]
-                outdir = output_dir + "/sub-%s" % (subject_label)
-            if preprocessing_type == 'HCP':
-                if ICAoutputs == 'YES':
-                    if selected_reg_name == msm_all_reg_name:
-                        vol_fmritcs = bold[0].replace('_Atlas_MSMAll_2_d40_WRN_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-                    else:
-                        vol_fmritcs = bold[0].replace('_Atlas_hp2000_clean.dtseries.nii','_hp2000_clean.nii.gz')
-                else:
-                    if selected_reg_name == msm_all_reg_name:
-                        vol_fmritcs = bold[0].replace('_Atlas_MSMAll_2_d40_WRN_hp2000.dtseries.nii','_hp2000.nii.gz')
-                    else:
-                        vol_fmritcs = bold[0].replace('_Atlas_hp2000.dtseries.nii','_hp2000.nii.gz')
-                zooms = nibabel.load(vol_fmritcs).get_header().get_zooms()
-                fmrires = str(int(min(zooms[:3])))
-                pass # call to rsfMRI_network_metrics    
-if args.combine_resting_scans == 'No' or args.combine_resting_scans == 'no':
-    if preprocessing_type == 'HCP':
-        # use ICA outputs
-        if ICAoutputs == 'YES':
-            ICAstring="_FIXclean"
-            if selected_reg_name == msm_all_reg_name:
-                bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest') if msm_all_reg_name+'_hp2000_clean' in f.filename]
-            else:
-                bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest') if '_hp2000_clean' and not msm_all_reg_name in f.filename]
-        # do not use ICA outputs
-        else:
-            ICAstring=""
-            if selected_reg_name == msm_all_reg_name:
-                bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest') if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
-            else:
-                bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
-    elif preprocessing_type == 'fmriprep':
-        #use ICA outputs
-        if ICAoutputs == 'YES':
-            ICAstring="_AROMAclean"
-            bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
-        # do not use ICA outputs
-        else:
-            ICAstring=""
-            bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
-        bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
-    run_MACCHIATO(ICAstring=ICAstring, 
-                               preprocessing_type=preprocessing_type,
-                               parcel_file=parcel_file,
-                               parcel_name=parcel_name,
-                               selected_reg_name=selected_reg_name,
-                               motion_confounds=motion_confounds,
-                               ICAoutputs=ICAoutputs,
-                               combine_resting_scans=combine_resting_scans,
-                               network_matrix_calculation=args.network_matrix_calculation,
-                               output_dir=output_dir, bold=bolds[0])
-    """
-    multiproc_pool.map(partial(run_MACCHIATO,ICAstring=ICAstring, 
-                               preprocessing_type=preprocessing_type,
-                               parcel_file=parcel_file,
-                               parcel_name=parcel_name,
-                               selected_reg_name=selected_reg_name,
-                               motion_confounds=motion_confounds,
-                               ICAoutputs=ICAoutputs,
-                               combine_resting_scans=combine_resting_scans,
-                               output_dir=output_dir),
-                sorted(bolds))
-    """
-else:
-    combined_bolds_list = []
-    if layout.get_sessions() > 0:
-        for scanning_session in layout.get_sessions():
-            # retreive subject id that is associated with session id and parse data with subject and session id
-            for subject in layout.get_subjects(session=scanning_session):
-                if preprocessing_type == 'HCP':
-                    # use ICA outputs
-                    if ICAoutputs == 'YES':
-                        ICAstring="_FIXclean"
-                        if selected_reg_name == msm_all_reg_name:
-                            bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=subject,session=scanning_session) if msm_all_reg_name+'_hp2000_clean' in f.filename]
-                        else:
-                            bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
-                    # do not use ICA outputs
-                    else:
-                        ICAstring=""
-                        if selected_reg_name == msm_all_reg_name:
-                            bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
-                        else:
-                            bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
-                elif preprocessing_type == 'fmriprep':
-                    #use ICA outputs
-                    if ICAoutputs == 'YES':
-                        ICAstring="_AROMAclean"
-                        bolds = [f.filename for f in layout.get(type='bold',task='rest',subject=subject,session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
-                    # do not use ICA outputs
-                    else:
-                        ICAstring=""
-                        bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
-                    bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
-                if len(bolds) == 2:
-                    combined_bolds_list.append(bolds)
-    else:
-        for scanning_session in layout.get_subjects():
-            if preprocessing_type == 'HCP':
-                # use ICA outputs
-                if ICAoutputs == 'YES':
-                    ICAstring="_FIXclean"
-                    if selected_reg_name == msm_all_reg_name:
-                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=scanning_session) if msm_all_reg_name+'_hp2000_clean' in f.filename]
-                    else:
-                        bolds = [f.filename for f in layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=scanning_session) if '_hp2000_clean' and not msm_all_reg_name in f.filename]
-                # do not use ICA outputs
-                else:
-                    ICAstring=""
-                    if selected_reg_name == msm_all_reg_name:
-                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=scanning_session) if msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
-                    else:
-                        bolds = [f.filename for f in layout.get(extensions="dtseries.nii", task='rest',subject=scanning_session) if '_hp2000' in f.filename and not 'clean' and not msm_all_reg_name in f.filename]
-            elif preprocessing_type == 'fmriprep':
-                #use ICA outputs
-                if ICAoutputs == 'YES':
-                    ICAstring="_AROMAclean"
-                    bolds = [f.filename for f in layout.get(type='bold',task='rest',subject=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
-                # do not use ICA outputs
-                else:
-                    ICAstring=""
-                    bolds = [f.filename for f in layout.get(type='bold',task='rest') if 'preproc' in f.filename]
-                bolds_ref = [f.filename for f in layout.get(type='boldref',task='rest')]
-            if len(bolds) == 2:
-                combined_bolds_list.append(bolds)
-    multiproc_pool.map(partial(run_MACCHIATO,ICAstring=ICAstring, 
-                               preprocessing_type=preprocessing_type,
-                               parcel_file=parcel_file,
-                               parcel_name=parcel_name,
-                               selected_reg_name=selected_reg_name,
-                               motion_confounds=motion_confounds,
-                               ICAoutputs=ICAoutputs,
-                               combine_resting_scans=combine_resting_scans,
-                               network_matrix_calculation=args.network_matrix_calculation,
-                               output_dir=output_dir),
-                sorted(combined_bolds_list))
-    
+# create list of bold scans to be run
+bolds = create_bold_lists(layout=layout,
+                          combine_resting_scans=args.combine_resting_scans,
+                          preprocessing_type=args.preprocessing_type,
+                          ICA_outputs=ICA_outputs,
+                          msm_all_reg_name="MSMAll_2_d40_WRN",
+                          selected_reg_name=args.reg_name)
+
+execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
+            parcel_file=args.parcel_file,
+            parcel_name=args.parcel_name,
+            selected_reg_name=args.reg_name,
+            motion_confounds=args.motion_confounds,
+            ICA_outputs=ICA_outputs,
+            combine_resting_scans=combine_resting_scans,
+            wavelet=wavelet,
+            network_matrix_calculation=args.network_matrix_calculation,
+            output_dir=args.output_dir, 
+            bold=bolds[0])
+
+# multiproc_pool.map(partial(execute_MACCHIATO_instances,preprocessing_type=args.preprocessing_type,
+#             parcel_file=args.parcel_file,
+#             parcel_name=args.parcel_name,
+#             selected_reg_name=args.reg_name,
+#             motion_confounds_filename=motion_confounds_filename,
+#             ICA_outputs=ICA_outputs,
+#             combine_resting_scans=combine_resting_scans,
+#             wavelet=wavelet,
+#             network_matrix_calculation=network_matrix_calculation,
+#             output_dir=args.output_dir,
+#             msm_all_reg_name = "MSMAll_2_d40_WRN"),
+#             sorted(bolds))
