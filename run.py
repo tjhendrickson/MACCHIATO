@@ -55,12 +55,12 @@ parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) out
 parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
 parser.add_argument('--parcellation_file', help='The CIFTI label file to use or used to parcellate the brain. ', default='NONE')
 parser.add_argument('--parcellation_name', help='Shorthand name of the CIFTI label file. ', default='NONE')
-parser.add_argument('--motion_confounds',help='What type of motion confounds to use, if any. Choices are "Movement_Regressors" (motion rotation angles and translations in mm), '
-                                        ' "Movement_Regressors_dt" (detrended motion rotation angles and translations in mm), "Movement_Regressors_demean" (demeaned motion rotation angles and translations in mm) "Movement_RelativeRMS" (RMS intensity difference of volume N to the reference volume), '
-                                        ' "Movement_RelativeRMS_mean" (square of RMS intensity difference of volume N to the reference volume), "Movement_AbsoluteRMS" (absolute RMS intensity difference of volume N to the reference volume, '
-                                        ' "Movement_AbsoluteRMS_mean" (square of absolute RMS intensity difference of volume N to the reference volume), "dvars" ( RMS intensity difference of volume N to volume N+1 (see Power et al, NeuroImage, 59(3), 2012)), '
-                                        ' "fd" ( frame displacement (average of rotation and translation parameter differences - using weighted scaling, as in Power et al.))',
-                                        choices = ['NONE','Movement_Regressors','Movement_Regressors_dt','Movement_RelativeRMS','Movement_RelativeRMS_mean','Movement_AbsoluteRMS','Movement_AbsoluteRMS_mean','dvars','fd'],default='NONE')
+# parser.add_argument('--motion_confounds',help='What type of motion confounds to use, if any. Choices are "Movement_Regressors" (motion rotation angles and translations in mm), '
+#                                         ' "Movement_Regressors_dt" (detrended motion rotation angles and translations in mm), "Movement_Regressors_demean" (demeaned motion rotation angles and translations in mm) "Movement_RelativeRMS" (RMS intensity difference of volume N to the reference volume), '
+#                                         ' "Movement_RelativeRMS_mean" (square of RMS intensity difference of volume N to the reference volume), "Movement_AbsoluteRMS" (absolute RMS intensity difference of volume N to the reference volume, '
+#                                         ' "Movement_AbsoluteRMS_mean" (square of absolute RMS intensity difference of volume N to the reference volume), "dvars" ( RMS intensity difference of volume N to volume N+1 (see Power et al, NeuroImage, 59(3), 2012)), '
+#                                         ' "fd" ( frame displacement (average of rotation and translation parameter differences - using weighted scaling, as in Power et al.))',
+#                                         choices = ['NONE','Movement_Regressors','Movement_Regressors_dt','Movement_RelativeRMS','Movement_RelativeRMS_mean','Movement_AbsoluteRMS','Movement_AbsoluteRMS_mean','dvars','fd'],default='NONE')
 parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
 parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['Yes','YES','yes','No','NO','no'],default='Yes')
 parser.add_argument('--network_matrix_calculation', help="What method to employ for network matrix estimation. "
@@ -79,8 +79,8 @@ parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default
 args = parser.parse_args()
 
 # now parse arguments and print to standard output (STDOUT)
-layout,motion_confounds_filename,ICA_outputs,graph_theory,network_matrix_calculation,combine_resting_scans,wavelet = workflow_log(preprocessing_type=args.preprocessing_type,
-                                                                                                    motion_confounds=args.motion_confounds,
+layout,ICA_outputs,graph_theory,network_matrix_calculation,combine_resting_scans,wavelet = workflow_log(preprocessing_type=args.preprocessing_type,
+                                                                                                    #motion_confounds=args.motion_confounds,
                                                                                                     ICA_outputs=args.use_ICA_outputs,
                                                                                                     graph_theory=args.graph_theory,
                                                                                                     network_matrix_calculation=args.network_matrix_calculation,
@@ -108,7 +108,7 @@ execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
             parcel_file=args.parcel_file,
             parcel_name=args.parcel_name,
             selected_reg_name=args.reg_name,
-            motion_confounds=args.motion_confounds,
+            #motion_confounds=args.motion_confounds,
             ICA_outputs=ICA_outputs,
             combine_resting_scans=combine_resting_scans,
             wavelet=wavelet,
