@@ -3,12 +3,12 @@
 from __future__ import print_function
 import argparse
 import os
+from functools import partial
 from subprocess import Popen, PIPE
 import subprocess
 from multiprocessing import Pool, Lock
-from utils.find_bolds import create_bold_lists 
-from utils.workflow_logger import workflow_log
-from workflow.core import execute_MACCHIATO_instances
+from workflow.utils import MACCHIATO_setup
+from tools.core import execute_MACCHIATO_instances
 
 # function which actually launches processes to underlying system
 def run(command, env={}, cwd=None):
@@ -66,56 +66,64 @@ parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default
 args = parser.parse_args()
 
 
-# now parse arguments and print to standard output (STDOUT)
+# now parse arguments and print to standard output (STDOUT), slight difference in call if done as batch or participant
 if args.group == 'batch':
-    layout,ICA_outputs,graph_theory,network_matrix_calculation,combine_resting_scans,wavelet = workflow_log(group=args.group,
-                                                                                                    preprocessing_type=args.preprocessing_type,
-                                                                                                    ICA_outputs=args.use_ICA_outputs,
-                                                                                                    graph_theory=args.graph_theory,
-                                                                                                    network_matrix_calculation=args.network_matrix_calculation,
-                                                                                                    input_dir=args.input_dir,
-                                                                                                    parcel_name=args.parcel_name,
-                                                                                                    parce_file=args.parcel_file,
-                                                                                                    fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
-                                                                                                    selected_reg_name=args.reg_name,
-                                                                                                    wavelet=args.wavelet,
-                                                                                                    combine_resting_scans=args.combine_resting_scans)
-else:
+    setupParams = MACCHIATO_setup(group=args.group,
+                    preprocessing_type=args.preprocessing_type,
+                    ICA_outputs=args.use_ICA_outputs,
+                    graph_theory=args.graph_theory,
+                    network_matrix_calculation=args.network_matrix_calculation,
+                    input_dir=args.input_dir,
+                    parcel_name=args.parcel_name,
+                    parce_file=args.parcel_file,
+                    fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
+                    selected_reg_name=args.reg_name,
+                    wavelet=args.wavelet,
+                    combine_resting_scans=args.combine_resting_scans)
+elif args.group == 'participant':
+    setupParams = MACCHIATO_setup(group=args.group,
+                    preprocessing_type=args.preprocessing_type,
+                    ICA_outputs=args.use_ICA_outputs,
+                    graph_theory=args.graph_theory,
+                    network_matrix_calculation=args.network_matrix_calculation,
+                    input_dir=args.input_dir,
+                    parcel_name=args.parcel_name,
+                    parce_file=args.parcel_file,
+                    fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
+                    selected_reg_name=args.reg_name,
+                    wavelet=args.wavelet,
+                    combine_resting_scans=args.combine_resting_scans,
+                    participant_label=args.participant_label,
+                    session_label=args.session_label)
+    
     
 
 # set up multiprocessing/parallelization allocation
 l = Lock()
 multiproc_pool = Pool(int(args.num_cpus))
 
-# create list of bold scans to be run
-bolds = create_bold_lists(layout=layout,
-                          combine_resting_scans=args.combine_resting_scans,
-                          preprocessing_type=args.preprocessing_type,
-                          ICA_outputs=ICA_outputs,
-                          msm_all_reg_name="MSMAll_2_d40_WRN",
-                          selected_reg_name=args.reg_name)
 
 execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
             parcel_file=args.parcel_file,
             parcel_name=args.parcel_name,
             selected_reg_name=args.reg_name,
-            #motion_confounds=args.motion_confounds,
-            ICA_outputs=ICA_outputs,
-            combine_resting_scans=combine_resting_scans,
-            wavelet=wavelet,
-            network_matrix_calculation=args.network_matrix_calculation,
+            ICA_outputs=setupParams['ICA_outputs'],
+            combine_resting_scans=setupParams['combine_resting_scans'],
+            wavelet=setupParams['wavelet'],
+            network_matrix_calculation=setupParams['network_matrix_calculation'],
             output_dir=args.output_dir, 
-            bold=bolds[0])
+            graph_theory=setupParams['graph_theory'],
+            bold=setupParams['bolds'][0])
 
-# multiproc_pool.map(partial(execute_MACCHIATO_instances,preprocessing_type=args.preprocessing_type,
-#             parcel_file=args.parcel_file,
-#             parcel_name=args.parcel_name,
-#             selected_reg_name=args.reg_name,
-#             motion_confounds_filename=motion_confounds_filename,
-#             ICA_outputs=ICA_outputs,
-#             combine_resting_scans=combine_resting_scans,
-#             wavelet=wavelet,
-#             network_matrix_calculation=network_matrix_calculation,
-#             output_dir=args.output_dir,
-#             msm_all_reg_name = "MSMAll_2_d40_WRN"),
-#             sorted(bolds))
+# multiproc_pool.map(partial(execute_MACCHIATO_instances,
+#                             preprocessing_type=args.preprocessing_type,
+#                             parcel_file=args.parcel_file,
+#                             parcel_name=args.parcel_name,
+#                             selected_reg_name=args.reg_name,
+#                             ICA_outputs=setupParams['ICA_outputs'],
+#                             combine_resting_scans=setupParams['combine_resting_scans'],
+#                             wavelet=setupParams['wavelet'],
+#                             network_matrix_calculation=setupParams['network_matrix_calculation'],
+#                             output_dir=args.output_dir, 
+#                             graph_theory=setupParams['graph_theory']),
+#                             sorted(setupParams['bolds']))

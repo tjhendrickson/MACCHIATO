@@ -5,4 +5,4 @@ Created on Thu May  7 17:56:52 2020
 
 @author: timothy
 """
-
+# alff, entropy, wavelet,
