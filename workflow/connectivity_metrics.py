@@ -31,8 +31,6 @@ class NetworkIO:
         # determine fmriname
         self.fmriname = os.path.basename(cifti_file).split('.')[0]
         
-        #TODO: as the network matrices will be vectorized, a vector label will have to be created.
-        # read parcel labels into list to query later
         try:
             read_parcel_file = cifti.read(self.parcel_file)
         except TypeError:
@@ -61,7 +59,7 @@ class NetworkIO:
             
         # is entered CIFTI file actually a CIFTI file?
         try:
-            cifti_load = nibabel.cifti2.cifti2.load(self.cifti_file)
+            self.cifti_load = nibabel.cifti2.cifti2.load(self.cifti_file)
         except:
             print("file does not look like a cifti file")
         cifti_file_basename = os.path.basename(self.cifti_file)
@@ -97,6 +95,7 @@ class NetworkIO:
         print('\t-Cifti file: ' + self.cifti_file)
         print('\t-Parcel file: ' + self.parcel_file)
         print('\t-Network matrix method/type: ' + str(self.method))
+        cifti_np_array = np.array(self.parcellated_cifti_load.get_fdata())
         if self.method == 'correlation':
             #Pearson correlation coefficients with LedoitWolf covariance estimator
             measure = ConnectivityMeasure(kind='correlation',cov_estimator=EmpiricalCovariance())
