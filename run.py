@@ -9,6 +9,7 @@ import subprocess
 from multiprocessing import Pool, Lock
 from workflow.utils import MACCHIATO_setup
 from tools.core import execute_MACCHIATO_instances
+import pdb
 
 # function which actually launches processes to underlying system
 def run(command, env={}, cwd=None):
@@ -67,6 +68,7 @@ args = parser.parse_args()
 
 
 # now parse arguments and print to standard output (STDOUT), slight difference in call if done as batch or participant
+
 if args.group == 'batch':
     setupParams = MACCHIATO_setup(group=args.group,
                     preprocessing_type=args.preprocessing_type,
@@ -74,8 +76,8 @@ if args.group == 'batch':
                     graph_theory=args.graph_theory,
                     network_matrix_calculation=args.network_matrix_calculation,
                     input_dir=args.input_dir,
-                    parcel_name=args.parcel_name,
-                    parce_file=args.parcel_file,
+                    parcel_name=args.parcellation_name,
+                    parcel_file=args.parcellation_file,
                     fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
                     selected_reg_name=args.reg_name,
                     wavelet=args.wavelet,
@@ -87,38 +89,37 @@ elif args.group == 'participant':
                     graph_theory=args.graph_theory,
                     network_matrix_calculation=args.network_matrix_calculation,
                     input_dir=args.input_dir,
-                    parcel_name=args.parcel_name,
-                    parce_file=args.parcel_file,
+                    parcel_name=args.parcellation_name,
                     fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
+                    parcel_file=args.parcellation_file,
                     selected_reg_name=args.reg_name,
                     wavelet=args.wavelet,
                     combine_resting_scans=args.combine_resting_scans,
                     participant_label=args.participant_label,
                     session_label=args.session_label)
-    
-    
 
+#transform "self" variables from MACCHIATO_setup to dictionary
+setupParams = setupParams.__dict__
 # set up multiprocessing/parallelization allocation
 l = Lock()
 multiproc_pool = Pool(int(args.num_cpus))
 
-
 execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
-            parcel_file=args.parcel_file,
-            parcel_name=args.parcel_name,
+            parcel_file=args.parcellation_file,
+            parcel_name=args.parcellation_name,
             selected_reg_name=args.reg_name,
             ICA_outputs=setupParams['ICA_outputs'],
             combine_resting_scans=setupParams['combine_resting_scans'],
             wavelet=setupParams['wavelet'],
-            network_matrix_calculation=setupParams['network_matrix_calculation'],
+            network_metric=setupParams['network_matrix_calculation'],
             output_dir=args.output_dir, 
-            graph_theory=setupParams['graph_theory'],
+            graph_theory_metric=setupParams['graph_theory'],
             bold=setupParams['bolds'][0])
 
 # multiproc_pool.map(partial(execute_MACCHIATO_instances,
 #                             preprocessing_type=args.preprocessing_type,
-#                             parcel_file=args.parcel_file,
-#                             parcel_name=args.parcel_name,
+#                             parcel_file=args.parcellation_file,
+#                             parcel_name=args.parcellation_name,
 #                             selected_reg_name=args.reg_name,
 #                             ICA_outputs=setupParams['ICA_outputs'],
 #                             combine_resting_scans=setupParams['combine_resting_scans'],

@@ -8,6 +8,7 @@ Created on Thu May  7 16:16:34 2020
 
 from bids.grabbids import BIDSLayout
 import os
+import pdb
 
 class MACCHIATO_setup:
     def __init__(self,group,preprocessing_type,ICA_outputs,
@@ -107,9 +108,6 @@ class MACCHIATO_setup:
         # create bold lists
         self.create_bold_lists()
         
-        # return parameters
-        self.return_parameters()
-        
     def workflow_logger(self):
         '''
         Ensures arguments specified to MACCHIATO are parsed correctly
@@ -149,9 +147,12 @@ class MACCHIATO_setup:
         else:
             self.ICA_outputs = 'NO'
         # if all graph theory metrics are requested, transform arg from string to list
-        if self.graph_theory == 'all' or self.graph_theory == 'All':
-            self.graph_theory = ['clustering_coefficient','local_efficiency','strength',
-        'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality']
+        if not self.graph_theory == 'NONE' or not self.graph_theory == 'none':
+            if self.graph_theory == 'all' or self.graph_theory == 'All':
+                self.graph_theory = ['clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality']
+            else:
+                self.graph_theory = self.graph_theory[0]
+                
         if self.network_matrix_calculation == 'all' or self.network_matrix_calculation == 'All':
             self.network_matrix_calculation = ['correlation','partial_correlation','dynamic_time_warping',
                                                'tangent','covariance', 'precision',
@@ -285,25 +286,6 @@ class MACCHIATO_setup:
                     if len(self.bolds) == 2:
                         self.combined_bolds_list.append(self.bolds)
             self.bolds = self.combined_bolds_list
-    def return_parameters(self):
-        '''
-        
-
-        Returns
-        -------
-        d : dictionary
-            Needed values for downstream processing
-
-        '''
-        d = dict()
-        d['layout'] = self.layout
-        d['ICA_outputs'] = self.ICA_outputs
-        d['graph_theory'] = self.graph_theory
-        d['network_matrix_calculation'] = self.network_matrix_calculation
-        d['combine_resting_scans'] = self.combine_resting_scans
-        d['wavelet'] = self.wavelet
-        d['bolds'] = self.bolds
-        return d
 
 class create_file_output: # TODO will need to incorporate overhaul this quite significantly
     pass
