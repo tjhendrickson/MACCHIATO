@@ -50,7 +50,7 @@ class MACCHIATO_setup:
         ValueError
             DESCRIPTION.
 
-        Returns a dictionary with keysand values labeled below
+        Returns a dictionary with keys and values labeled below
         -------
         layout : bids.grabbids.BIDSLayout object describing BIDS dataset
         ICA_outputs : TYPE
@@ -122,6 +122,7 @@ class MACCHIATO_setup:
             assert(self.participant_label or self.session_label), 'If "--group participant" is specified, either --participant_label and/or --session_label must also be specified. Exiting.'
             if self.participant_label and self.session_label:
                 try:
+                    pdb.set_trace()
                     self.layout = BIDSLayout(os.path.join(self.input_dir,self.participant_label,self.session_label))
                 except:
                     raise TypeError('Input folder: {input_dir} does not look like a BIDS folder or {input_dir} is not a path to a folder. '.format(input_dir=os.path.join(self.input_dir,self.participant_label,self.session_label)))
@@ -147,13 +148,13 @@ class MACCHIATO_setup:
         else:
             self.ICA_outputs = 'NO'
         # if all graph theory metrics are requested, transform arg from string to list
-        if not self.graph_theory == 'NONE' or not self.graph_theory == 'none':
-            if self.graph_theory == 'all' or self.graph_theory == 'All':
+        if not self.graph_theory == 'NONE' :
+            if self.graph_theory == 'All':
                 self.graph_theory = ['clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality']
             else:
                 self.graph_theory = self.graph_theory[0]
                 
-        if self.network_matrix_calculation == 'all' or self.network_matrix_calculation == 'All':
+        if self.network_matrix_calculation == 'All':
             self.network_matrix_calculation = ['correlation','partial_correlation','dynamic_time_warping',
                                                'tangent','covariance', 'precision',
                                                'sparse_inverse_precision','sparse_inverse_covariance']

@@ -19,16 +19,15 @@ class execute_MACCHIATO_instances:
     def __init__(self,bold,preprocessing_type,parcel_file,parcel_name,
                   selected_reg_name,ICA_outputs,
                   combine_resting_scans,wavelet,network_metric,graph_theory_metric,
-                  output_dir):
-        pdb.set_trace()
+                  output_dir,fishers_r_to_z_transform):
         if wavelet == 'YES':
             pass #TODO will be passed to timeseries_metrics.py
         else:
             if graph_theory_metric == 'NONE':
                 if type(network_metric) == str:
-                    NetworkIO(output_dir=output_dir, cifti_file=bold, parcel_file=parcel_file, parcel_name=parcel_name, network_metric=network_metric)
+                    NetworkIO(output_dir=output_dir, cifti_file=bold, parcel_file=parcel_file, parcel_name=parcel_name, network_metric=network_metric,fishers_r_to_z_transform=fishers_r_to_z_transform)
                 else:
                     pass
             else:
-                GraphTheoryIO(output_dir=output_dir, cifti_file=bold, parcel_file=parcel_file, parcel_name=parcel_name,network_metric=network_metric,graph_theory_metric=graph_theory_metric)
+                GraphTheoryIO(output_dir=output_dir, cifti_file=bold, parcel_file=parcel_file, parcel_name=parcel_name,network_metric=network_metric,fishers_r_to_z_transform=fishers_r_to_z_transform,graph_theory_metric=graph_theory_metric)
         

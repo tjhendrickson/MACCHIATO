@@ -51,6 +51,14 @@ apt-get install -y nodejs
 npm install -g bids-validator@0.26.11
 /opt/Miniconda3/bin/pip install git+https://github.com/INCF/pybids.git@0.6.0
 
+# Install entropy toolbox: https://raphaelvallat.com/entropy/build/html/index.html
+
+mkdir /entropy
+git clone https://github.com/raphaelvallat/entropy.git /entropy
+cd /entropy
+/opt/Miniconda3/bin/pip install -r requirements.txt
+/opt/Miniconda3/bin/python setup.py develop
+
 # Install Connectome Workbench version 1.3.2
 apt-get update
 cd /opt

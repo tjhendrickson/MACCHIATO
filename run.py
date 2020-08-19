@@ -50,19 +50,19 @@ parser.add_argument('--combine_resting_scans',help='If multiple of the same rest
 parser.add_argument('--parcellation_file', help='The CIFTI label file to use or used to parcellate the brain. ', required=True)
 parser.add_argument('--parcellation_name', help='Shorthand name of the CIFTI label file. ', required=True)
 parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
-parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['Yes','YES','yes','No','NO','no'],default='Yes')
+parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['YES','NO'],default='YES')
 parser.add_argument('--network_matrix_calculation', help="What method to employ for network matrix estimation. "
                                                     " Choices are 'All', 'correlation','partial_correlation', "
                                                     " 'dynamic_time_warping', 'tangent', 'covariance', 'sparse_inverse_covariance', "
                                                     "  'precision', 'sparse_inverse_precision'. NOTE: Specifying sparse matrices or dynamic time warping will result in increased computation time. For more information on available methods https://nilearn.github.io/connectivity/index.html#functional-connectivity-and-resting-state", 
-                                                    choices =['All','all','correlation','partial_correlation',
+                                                    choices =['All','correlation','partial_correlation',
                                                               'dynamic_time_warping','covariance',
                                                               'precision','sparse_inverse_precision',
                                                               'sparse_inverse_covariance'], default='correlation',nargs='+')
-parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'None'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','all','clustering_coefficient','local_efficiency','strength',
-'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','None','none','NONE'], default = 'NONE',nargs='+')
-parser.add_argument('--wavelet',help="Whether or not to output wavelet matrices which includes measures of entropy, strength, and diversity. Which includes functional connectivity range scales: Scale 1 (0.23-0.45 Hz), Scale 2 (0.11-0.23 Hz), Scale 3 (0.06-0.11 Hz), Scale 4 (0.03-0.06 Hz), Scale 5 (0.01-0.03 Hz), Scale 6 (0.007-0.01 Hz). Choices are 'Yes' or 'No'.", 
-                    choices = ['Yes','YES','yes','No','NO','no'],default='No')
+parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'NONE'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','clustering_coefficient','local_efficiency','strength',
+'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','NONE'], default = 'NONE',nargs='+')
+parser.add_argument('--timeseries_processing',help="Modify timeseries prior to generating network matrices. Choices include: 'entropy','alff','falff','wavelet', 'NONE'.",
+                    choices = ['entropy','alff','falff','wavelet','NONE'],default='NONE')
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
 
@@ -109,6 +109,7 @@ execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
             parcel_name=args.parcellation_name,
             selected_reg_name=args.reg_name,
             ICA_outputs=setupParams['ICA_outputs'],
+            fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
             combine_resting_scans=setupParams['combine_resting_scans'],
             wavelet=setupParams['wavelet'],
             network_metric=setupParams['network_matrix_calculation'],
@@ -122,6 +123,7 @@ execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
 #                             parcel_name=args.parcellation_name,
 #                             selected_reg_name=args.reg_name,
 #                             ICA_outputs=setupParams['ICA_outputs'],
+#                               fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
 #                             combine_resting_scans=setupParams['combine_resting_scans'],
 #                             wavelet=setupParams['wavelet'],
 #                             network_matrix_calculation=setupParams['network_matrix_calculation'],

@@ -14,8 +14,28 @@ import scipy.linalg as la
 import bct
 
 class NetworkIO:
-    def __init__(self,output_dir,cifti_file, parcel_file, parcel_name,network_metric):
-        
+    def __init__(self,output_dir,cifti_file, parcel_file, parcel_name,network_metric,fishers_r_to_z_transform):
+        '''
+        Parameters
+        ----------
+        output_dir : string
+            Where to output generated data
+        cifti_file : string
+            Path to inputted cifti file that will be processed
+        parcel_name : string
+            Shorthand name of the CIFTI label file. 
+        parcel_file : string
+            The CIFTI label file to use or used to parcellate the brain.
+        network_metric : [All, correlation, partial_correlation, dynamic_time_warping, covariance, precision, sparse_inverse_precision, sparse_inverse_covariance]
+            What method to employ for network matrix estimation.
+        fishers_r_to_z_transform : [YES, NO]
+            Should Fisher's r-to-z transformation be applied?
+
+        Returns
+        -------
+        None.
+
+        '''
         # path that data will be written to
         self.output_dir = output_dir
         # inputted cifti file
@@ -24,6 +44,7 @@ class NetworkIO:
         self.parcel_file = parcel_file
         # shorthand name chosen for parcel file
         self.parcel_name = parcel_name
+        self.fishers_r_to_z_transform = fishers_r_to_z_transform
         self.network_metric = network_metric
         
         # create output folder if it does not exist
@@ -116,18 +137,21 @@ class NetworkIO:
                 network_matrix = measure.precision_
         else:
             network_matrix = measure.fit_transform([cifti_np_array])[0]
-        self.network_matrix = network_matrix
+        if self.network_metric == 'correlation' and self.fishers_r_to_z_transform == 'YES':
+            self.network_matrix = 0.5*(np.log(1+network_matrix)-np.log(1-network_matrix))
+        else:
+            self.network_matrix = network_matrix
         # currently not vectorizing outputs, could come back to this later
         #vectorized_network_matrix = network_matrix[np.triu_indices(network_matrix.shape[0],k=1)]
         #self.vectorized_network_matrix = vectorized_network_matrix
 class GraphTheoryIO(NetworkIO):
-    def __init__(self,output_dir,cifti_file, parcel_file, parcel_name, network_metric, graph_theory_metric):
+    def __init__(self,output_dir,cifti_file, parcel_file, parcel_name, network_metric, fishers_r_to_z_transform, graph_theory_metric):
         #local efficiency, strength, node betweeness centrality, edge betweenness centrality local density, eigenvector centrality, clustering coefficient
         # ensure that data does not have NaNs or Infs, place diagnonal to zero, and restrict floating point to five decimals for stability
 
         # execute parent class NetworkIO to produce connectivity matrix
-        super().__init__(output_dir,cifti_file, parcel_file, parcel_name,network_metric)
-        
+        super().__init__(output_dir,cifti_file, parcel_file, parcel_name,network_metric,fishers_r_to_z_transform)
+        pdb.set_trace()
         self.graph_theory_metric = graph_theory_metric
 
         self.network_matrix[np.where(np.isinf(self.network_matrix))] = 0
@@ -139,26 +163,26 @@ class GraphTheoryIO(NetworkIO):
         if graph_theory_metric == 'node_betweenness_centrality' or graph_theory_metric == 'edge_betweenness_centrality':
             # convert matrix to lengths
             lengths_network_matrix = bct.weight_conversion(self.network_matrix,'lengths')
-            
+            num_nodes = self.network_matrix.shape[0]
             if graph_theory_metric == 'node_betweenness_centrality':
                 # node betweeness centrality
-                self.graph_theory_network_matrix = bct.centrality.betweenness_wei(lengths_network_matrix)
+                self.graph_theory_connection_matrix,self.graph_theory_vector = bct.centrality.betweenness_wei(lengths_network_matrix)
             elif graph_theory_metric == 'edge_betweenness_centrality':
                 # edge betweeness centrality
-                self.graph_theory_network_matrix = bct.centrality.edge_betweenness_wei(lengths_network_matrix)
+                self.graph_theory_vector = bct.centrality.edge_betweenness_wei(lengths_network_matrix)
         else:
             if graph_theory_metric == 'eigenvector_centrality':
                 # eigenvector centrality
-                self.graph_theory_network_matrix = bct.eigenvector_centrality_und(self.network_matrix)
+                self.graph_theory_vector = bct.eigenvector_centrality_und(self.network_matrix)
             elif graph_theory_metric == 'local_efficiency':
                 #local efficiency
-                self.graph_theory_network_matrix = bct.efficiency_wei(self.network_matrix,local=True)
+                self.graph_theory_vector = bct.efficiency_wei(self.network_matrix,local=True)
             elif graph_theory_metric == 'strength':        
                 #node strength
-                self.graph_theory_network_matrix = bct.strengths_und(self.network_matrix)
+                self.graph_theory_vector = bct.strengths_und(self.network_matrix)
             elif graph_theory_metric ==  'clustering_coefficient':
                 #clustering coefficent
-                self.graph_theory_network_matrix = bct.clustering_coef_wu(self.network_matrix)
+                self.graph_theory_vector = bct.clustering_coef_wu(self.network_matrix)
 
 
 
