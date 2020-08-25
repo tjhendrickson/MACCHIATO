@@ -6,7 +6,7 @@ Created on Thu May  7 17:56:52 2020
 @author: timothy
 """
 
-from scipy.signal import butter
+from scipy.signal import butter,filtfilt,periodogram
 from entropy import sample_entropy
 import pywt
 import nibabel
@@ -55,7 +55,7 @@ class TimeSeriesIO:
         for out in output:
             out = out.decode('utf-8')
             if 'Map Interval Step:' in out:
-                TR = float(out.split(' ')[-1].strip)
+                TR = float(out.split(' ')[-1].strip())
         tps = self.cifti_load_np_array.shape[0]
         if self.time_series_metric == 'wavelet':
             #Which includes functional connectivity range scales: Scale 1 (0.23-0.45 Hz), Scale 2 (0.11-0.23 Hz), Scale 3 (0.06-0.11 Hz), Scale 4 (0.03-0.06 Hz), Scale 5 (0.01-0.03 Hz), Scale 6 (0.007-0.01 Hz).
@@ -65,7 +65,12 @@ class TimeSeriesIO:
             pass
         elif self.time_series_metric == 'alff' or self.timeseries == 'falff':
             # alff and f/alff
-             # number of time points in timeseries
+            bf_b, bf_a = butter(N=2,Wn=np.array([0.01,0.08])/(1/TR/2),btype="bandpass") # 2nd order butterworth filter with band pass 0.01-0.08 Hz
+            ar=np.array([1,0.5])
+            ma=np.array([1])
+            bp_filtered_cifti_timeseries = filtfilt(b=bf_b,a=bf_a,x=self.cifti_load_np_array)
+            power_spectra_bp_filtered_cifti_timeseries_f, power_spectra_bp_filtered_cifti_timeseries_pxx = periodogram(x=bp_filtered_cifti_timeseries,detrend='constant',fs=TR)
+            hertz=(1/TR/2)*power_spectra_bp_filtered_cifti_timeseries_f
             pass
         
         

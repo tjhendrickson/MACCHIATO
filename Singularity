@@ -40,6 +40,8 @@ wget https://repo.anaconda.com/miniconda/Miniconda3-4.7.12.1-Linux-x86_64.sh -O 
 bash /opt/Miniconda3.sh -b -p /opt/Miniconda3
 export PATH="/opt/Miniconda3/bin:${PATH}"
 /opt/Miniconda3/bin/conda install -y scipy numpy pandas h5py
+/opt/Miniconda3/bin/conda install -c conda-forge -y statsmodels
+
 /opt/Miniconda3/bin/pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476
 
 # Install the validator 0.26.11, along with pybids 0.6.0
@@ -53,11 +55,7 @@ npm install -g bids-validator@0.26.11
 
 # Install entropy toolbox: https://raphaelvallat.com/entropy/build/html/index.html
 
-mkdir /entropy
-git clone https://github.com/raphaelvallat/entropy.git /entropy
-cd /entropy
-/opt/Miniconda3/bin/pip install -r requirements.txt
-/opt/Miniconda3/bin/python setup.py develop
+pip install git+git://github.com/raphaelvallat/entropy.git@3bf3b6e937687e77965ecb5bfdc69e2a0f05936
 
 # Install Connectome Workbench version 1.3.2
 apt-get update
