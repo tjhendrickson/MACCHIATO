@@ -9,6 +9,8 @@ Created on Thu May  7 16:16:34 2020
 from bids.grabbids import BIDSLayout
 import os
 import pdb
+from mpi4py import MPI
+import h5py
 
 class MACCHIATO_setup:
     def __init__(self,group,preprocessing_type,ICA_outputs,
@@ -289,9 +291,54 @@ class MACCHIATO_setup:
             self.bolds = self.combined_bolds_list
 
 class create_file_output: # TODO will need to incorporate overhaul this quite significantly
-    pass
+    def __init__(self,metric_name,metric_data,parcel_name,parcel_file,cifti_file):
+        '''
+        
+        Parameters
+        ----------
+        metric_name : string
+            Inputted metric will be one of the following metrics calculated throughout the MACCHIATO workflow.
+            Metrics include: [correlation, partial_correlation, dynamic_time_warping, covariance, precision, sparse_inverse_precision, sparse_inverse_covariance,
+            clustering_coefficient,local_efficiency,strength,node_betweenness_centrality,edge_betweenness_centrality,eigenvector_centrality,
+            entropy,alff,f/alff,and wavelet]
+        metric_data : numpy array
+            Data array from metric. Will be a vector or matrix depending on metric.
+        parcel_name : string
+            Shorthand name of the CIFTI label file. 
+        parcel_file : string
+            The CIFTI label file to use or used to parcellate the brain.
+        cifti_file : string
+            Path to inputted cifti file that will be processed
 
-    """def create_file_output(self,ICAstring,text_output_dir,level,data_output_format):
+        Raises
+        ------
+        IOError
+            DESCRIPTION.
+
+        Returns
+        -------
+        HDF5 compatible dataset
+
+        '''
+        
+
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        """def create_file_output(self,ICAstring,text_output_dir,level,data_output_format):
             print('\n')
             print('rsfMRI_network_metrics.py: Create Text Output ')
             print('\t-Text output folder: %s' %str(text_output_dir))

@@ -1,4 +1,4 @@
-#!/opt/Miniconda3/bin/python
+#!/usr/bin/env python3
 
 from __future__ import print_function
 import argparse
@@ -6,10 +6,12 @@ import os
 from functools import partial
 from subprocess import Popen, PIPE
 import subprocess
-from multiprocessing import Pool, Lock
 from workflow.utils import MACCHIATO_setup
 from tools.core import execute_MACCHIATO_instances
 import pdb
+from mpi4py import MPI
+import h5py
+import numpy as np
 
 # function which actually launches processes to underlying system
 def run(command, env={}, cwd=None):
@@ -101,8 +103,10 @@ elif args.group == 'participant':
 #transform "self" variables from MACCHIATO_setup to dictionary
 setupParams = setupParams.__dict__
 # set up multiprocessing/parallelization allocation
-l = Lock()
-multiproc_pool = Pool(int(args.num_cpus))
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+#f = h5py.File('test.hdf5','w',driver='mpio',comm=comm)
+
 
 execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
             parcel_file=args.parcellation_file,

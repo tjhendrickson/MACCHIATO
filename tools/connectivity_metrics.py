@@ -29,7 +29,7 @@ class NetworkIO:
         network_metric : [All, correlation, partial_correlation, dynamic_time_warping, covariance, precision, sparse_inverse_precision, sparse_inverse_covariance]
             What method to employ for network matrix estimation.
         fishers_r_to_z_transform : [YES, NO]
-            Should Fisher's r-to-z transformation be applied?
+            Should Fishe4r's r-to-z transformation be applied?
 
         Returns
         -------
@@ -146,6 +146,30 @@ class NetworkIO:
         #self.vectorized_network_matrix = vectorized_network_matrix
 class GraphTheoryIO(NetworkIO):
     def __init__(self,output_dir,cifti_file, parcel_file, parcel_name, network_metric, fishers_r_to_z_transform, graph_theory_metric):
+        '''
+        Parameters
+        ----------
+        output_dir : TYPE
+            DESCRIPTION.
+        cifti_file : TYPE
+            DESCRIPTION.
+        parcel_file : TYPE
+            DESCRIPTION.
+        parcel_name : TYPE
+            DESCRIPTION.
+        network_metric : TYPE
+            DESCRIPTION.
+        fishers_r_to_z_transform : TYPE
+            DESCRIPTION.
+        graph_theory_metric : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        '''
+        
         #local efficiency, strength, node betweeness centrality, edge betweenness centrality local density, eigenvector centrality, clustering coefficient
         # ensure that data does not have NaNs or Infs, place diagnonal to zero, and restrict floating point to five decimals for stability
 

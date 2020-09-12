@@ -5,7 +5,8 @@ From: ubuntu:18.04
 %files
 
 run.py /run.py
-rsfMRI_network_metrics.py /rsfMRI_network_metrics.py
+tools /tools
+workflow /worklow
 
 
 %environment
@@ -39,10 +40,14 @@ cd /opt
 wget https://repo.anaconda.com/miniconda/Miniconda3-4.7.12.1-Linux-x86_64.sh -O /opt/Miniconda3.sh
 bash /opt/Miniconda3.sh -b -p /opt/Miniconda3
 export PATH="/opt/Miniconda3/bin:${PATH}"
-/opt/Miniconda3/bin/conda install -y scipy numpy pandas h5py
-/opt/Miniconda3/bin/conda install -c conda-forge -y statsmodels
+. /opt/Miniconda3/etc/profile.d/conda.sh
+conda activate 
+conda install -y scipy numpy pandas mpi4py
+conda install -c conda-forge -y statsmodels
+conda install -c conda-forge -y "h5py>=2.9=mpi*"
 
-/opt/Miniconda3/bin/pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476
+
+pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476
 
 # Install the validator 0.26.11, along with pybids 0.6.0
 apt-get update
@@ -51,7 +56,7 @@ curl -sL https://deb.nodesource.com/setup_10.x | bash -
 apt-get remove -y curl
 apt-get install -y nodejs
 npm install -g bids-validator@0.26.11
-/opt/Miniconda3/bin/pip install git+https://github.com/INCF/pybids.git@0.6.0
+pip install git+https://github.com/INCF/pybids.git@0.6.0
 
 # Install entropy toolbox: https://raphaelvallat.com/entropy/build/html/index.html
 
@@ -65,7 +70,7 @@ unzip workbench-rh_linux64-v1.3.2.zip
 export PATH=/opt/workbench/bin_rh_linux64:${PATH}
 
 # Make scripts executable
-chmod +x /run.py /rsfMRI_network_metrics.py 
+chmod +x -R /run.py /tools /workflow
 
 %runscript
 
