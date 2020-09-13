@@ -12,6 +12,7 @@ import pdb
 from mpi4py import MPI
 import h5py
 import numpy as np
+import cifti
 
 # function which actually launches processes to underlying system
 def run(command, env={}, cwd=None):
@@ -104,9 +105,27 @@ elif args.group == 'participant':
 setupParams = setupParams.__dict__
 # set up multiprocessing/parallelization allocation
 comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-#f = h5py.File('test.hdf5','w',driver='mpio',comm=comm)
+rank = comm.rank
+comm.Barrier()    ### start Stopwatch ###
+t_start = MPI.Wtime() 
+sample_count = len(setupParams['bolds'])
 
+# retreive height and width of matrices 
+try:
+    read_parcel_file = cifti.read(args.parcellation_file)
+except TypeError:
+    print('This does not look like a CIFTI parcel file. Must exit')
+parcel_file_label_tuple = read_parcel_file[1][0][0][1]
+parcel_labels = []
+for value in parcel_file_label_tuple:
+        if not '???' in parcel_file_label_tuple[value][0]:
+            parcel_labels.append(parcel_file_label_tuple[value][0])
+height = len(parcel_labels) # height of functional connectome
+width = len(parcel_labels) # width of functional connectome
+
+f = h5py.File('test.hdf5','w',driver='mpio',comm=comm)
+f.create_dataset(name=setupParams['network_matrix_calculation'], shape=(sample_count,height,width), dtype='f')
+#
 
 execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
             parcel_file=args.parcellation_file,
@@ -121,16 +140,17 @@ execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
             graph_theory_metric=setupParams['graph_theory'],
             bold=setupParams['bolds'][0])
 
-# multiproc_pool.map(partial(execute_MACCHIATO_instances,
-#                             preprocessing_type=args.preprocessing_type,
-#                             parcel_file=args.parcellation_file,
-#                             parcel_name=args.parcellation_name,
-#                             selected_reg_name=args.reg_name,
-#                             ICA_outputs=setupParams['ICA_outputs'],
-#                               fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
-#                             combine_resting_scans=setupParams['combine_resting_scans'],
-#                             wavelet=setupParams['wavelet'],
-#                             network_matrix_calculation=setupParams['network_matrix_calculation'],
-#                             output_dir=args.output_dir, 
-#                             graph_theory=setupParams['graph_theory']),
-#                             sorted(setupParams['bolds']))
+for bold in sorted(setupParams['bolds']):
+    partial(execute_MACCHIATO_instances,
+    preprocessing_type=args.preprocessing_type,
+    parcel_file=args.parcellation_file,
+    parcel_name=args.parcellation_name,
+    selected_reg_name=args.reg_name,
+    ICA_outputs=setupParams['ICA_outputs'],
+      fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
+    combine_resting_scans=setupParams['combine_resting_scans'],
+    wavelet=setupParams['wavelet'],
+    network_matrix_calculation=setupParams['network_matrix_calculation'],
+    output_dir=args.output_dir, 
+    graph_theory=setupParams['graph_theory'],
+    bold=bold)
