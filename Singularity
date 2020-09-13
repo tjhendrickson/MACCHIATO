@@ -6,7 +6,7 @@ From: ubuntu:18.04
 
 run.py /run.py
 tools /tools
-workflow /worklow
+workflow /workflow
 
 
 %environment
