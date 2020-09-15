@@ -141,9 +141,8 @@ class NetworkIO:
             self.network_matrix = 0.5*(np.log(1+network_matrix)-np.log(1-network_matrix))
         else:
             self.network_matrix = network_matrix
-        # currently not vectorizing outputs, could come back to this later
-        #vectorized_network_matrix = network_matrix[np.triu_indices(network_matrix.shape[0],k=1)]
-        #self.vectorized_network_matrix = vectorized_network_matrix
+        return self.network_matrix
+        
 class GraphTheoryIO(NetworkIO):
     def __init__(self,output_dir,cifti_file, parcel_file, parcel_name, network_metric, fishers_r_to_z_transform, graph_theory_metric):
         '''
@@ -207,6 +206,7 @@ class GraphTheoryIO(NetworkIO):
             elif graph_theory_metric ==  'clustering_coefficient':
                 #clustering coefficent
                 self.graph_theory_vector = bct.clustering_coef_wu(self.network_matrix)
+        return self.graph_theory_vector # TODO will likely need to wrap some logic into this return
 
 
 

@@ -10,7 +10,6 @@ import os
 import nibabel
 from .connectivity_metrics import NetworkIO, GraphTheoryIO
 #from timeseries
-from workflow.utils import create_file_output
 import pdb
 
 
@@ -25,7 +24,8 @@ class execute_MACCHIATO_instances:
         else:
             if graph_theory_metric == 'NONE':
                 if type(network_metric) == str:
-                    NetworkIO(output_dir=output_dir, cifti_file=bold, parcel_file=parcel_file, parcel_name=parcel_name, network_metric=network_metric,fishers_r_to_z_transform=fishers_r_to_z_transform)
+                    metric_data = NetworkIO(output_dir=output_dir, cifti_file=bold, parcel_file=parcel_file, parcel_name=parcel_name, network_metric=network_metric,fishers_r_to_z_transform=fishers_r_to_z_transform)
+                    return metric_data # TODO this logic will have to be much stronger with full implementation
                 else:
                     pass
             else:

@@ -16,7 +16,7 @@ class MACCHIATO_setup:
     def __init__(self,group,preprocessing_type,ICA_outputs,
                  graph_theory,network_matrix_calculation,input_dir,parcel_name,
                  parcel_file,fishers_r_to_z_transform,selected_reg_name,
-                 wavelet,combine_resting_scans,**kwargs):
+                 timeseries_processing,combine_resting_scans,**kwargs):
         '''
         Parameters
         ----------
@@ -40,7 +40,7 @@ class MACCHIATO_setup:
             Should Fisher's r-to-z transformation be applied?
         selected_reg_name : string
             What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"'
-        wavelet : string
+        timeseries_processing : string
             Whether or not to output wavelet matrices 
         combine_resting_scans : string
             If multiple of the same resting state BIDS file type exist should they be combined?
@@ -80,7 +80,7 @@ class MACCHIATO_setup:
             parcel_file = parcel_file,
             fishers_r_to_z_transform = apply_Fishers_r_to_z_transform,
             selected_reg_name = reg_name,
-            wavelet = wavelet,
+            timeseries_processing = timeseries_processing,
             combine_resting_scans = combine_resting_scans)
         >>> parameters['ICA_outputs']
         >>> 'YES'
@@ -98,7 +98,7 @@ class MACCHIATO_setup:
         self.fishers_r_to_z_transform = fishers_r_to_z_transform
         self.selected_reg_name = selected_reg_name
         self.msm_all_reg_name="MSMAll_2_d40_WRN"
-        self.wavelet = wavelet
+        self.timeseries_processing = timeseries_processing
         self.combine_resting_scans = combine_resting_scans
         for key in ('participant_label', 'session_label'):
                 if key in kwargs:
@@ -139,10 +139,8 @@ class MACCHIATO_setup:
             self.combine_resting_scans = 'YES'
         elif self.combine_resting_scans == 'No' or self.combine_resting_scans == 'no':
             self.combine_resting_scans = 'NO'
-        if self.wavelet == 'Yes' or self.wavelet == 'yes':
-            self.wavelet = 'YES'
-        elif self.wavelet == 'No' or self.wavelet == 'no':
-            self.wavelet = 'NO'
+        if not self.timeseries_processing == 'NONE' or self.timeseries_processing == 'yes':
+            self.timeseries_processing = self.timeseries_processing[0]
         
          # use ICA outputs
         if self.ICA_outputs == 'yes' or self.ICA_outputs == 'Yes':
@@ -171,7 +169,7 @@ class MACCHIATO_setup:
         print('\t-Short hand parcellation name to be used: %s' %str(self.parcel_name))
         print('\t-Network matrix metric/s to compute: %s' %(self.network_matrix_calculation))
         print("\t-Whether or not to compute Fisher's r-to-z transform to network matrices: %s" %(self.fishers_r_to_z_transform))
-        print('\t-Whether or not to perform wavelet entropy on matrices: %s' %(self.wavelet))
+        print('\t-Timeseries processing method to apply: %s' %(self.timeseries_processing))
         print('\t-Graph theory metric/s to compute: %s' %(self.graph_theory))
         print('\t-Input registration file to be used: %s' %str(self.selected_reg_name))
         print('\t-The preprocessing pipeline that the input comes from: %s' %str(self.preprocessing_type))
@@ -289,124 +287,3 @@ class MACCHIATO_setup:
                     if len(self.bolds) == 2:
                         self.combined_bolds_list.append(self.bolds)
             self.bolds = self.combined_bolds_list
-
-class create_file_output: # TODO will need to incorporate overhaul this quite significantly
-    def __init__(self,metric_name,metric_data,parcel_name,parcel_file,cifti_file):
-        '''
-        
-        Parameters
-        ----------
-        metric_name : string
-            Inputted metric will be one of the following metrics calculated throughout the MACCHIATO workflow.
-            Metrics include: [correlation, partial_correlation, dynamic_time_warping, covariance, precision, sparse_inverse_precision, sparse_inverse_covariance,
-            clustering_coefficient,local_efficiency,strength,node_betweenness_centrality,edge_betweenness_centrality,eigenvector_centrality,
-            entropy,alff,f/alff,and wavelet]
-        metric_data : numpy array
-            Data array from metric. Will be a vector or matrix depending on metric.
-        parcel_name : string
-            Shorthand name of the CIFTI label file. 
-        parcel_file : string
-            The CIFTI label file to use or used to parcellate the brain.
-        cifti_file : string
-            Path to inputted cifti file that will be processed
-
-        Raises
-        ------
-        IOError
-            DESCRIPTION.
-
-        Returns
-        -------
-        HDF5 compatible dataset
-
-        '''
-        
-
-    
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        """def create_file_output(self,ICAstring,text_output_dir,level,data_output_format):
-            print('\n')
-            print('rsfMRI_network_metrics.py: Create Text Output ')
-            print('\t-Text output folder: %s' %str(text_output_dir))
-            print('\t-Data output format: %s'%str(data_output_format))
-            print('\t-Cifti file: %s' %str(self.cifti_file))
-            print('\t-Parcel file: %s' %str(self.parcel_file))
-            print('\t-Parcel name: %s' %str(self.parcel_name))
-            print('\t-Network matrix output method/type: %s' %str(self.method))
-            print('\t-The fmri file name: %s' %str(self.fmriname))
-            print('\t-ICA String to be used to find FEAT dir, if any: %s' %str(ICAstring))
-            print('\t-Analysis level to output data from: %s' %str(level))
-            print('\n')
-            # find vectorized network matrix
-    
-            # set outputs suffixes
-            if data_output_format == "NUMPY" or data_output_format == "numpy":
-                # if file exists and subject and session have yet to be added, add to file
-                output_text_file = os.path.join(text_output_dir,"_".join(self.fmriname.split('_')[2:])+"_"+self.parcel_name+ICAstring+'_level'+ str(level)+'_method'+self.method+".csv")
-                # prevent race condition by using "try" statement
-                try:
-                    read_output_text_file = open(output_text_file,'r')
-                    read_output_text_file.close()
-                except:
-                    # if doesn't exist create headers and add subject/session data to file
-                    write_output_text_file = open(output_text_file,'w')
-                # file exists and is accessible, ensure that to be appended data does not yet exist on it
-                fieldnames = self.parcel_labels
-                # append subject and session ID to fieldname list
-                if os.path.basename(self.output_dir).split('-')[0] == 'ses':
-                    fieldnames.insert(0,'Session ID')
-                fieldnames.insert(0,'Subject ID')
-                
-                # if dataset is empty pandas will throw an error
-                try:     
-                    output_text_file_df = pd.read_csv(output_text_file)
-                except:
-                    #add header and append data to file
-                    write_output_text_file = open(output_text_file,'w')
-                    try:
-                        # try holding an exclusive lock first
-                        F.flock(write_output_text_file, F.LOCK_EX | F.LOCK_NB)
-                    except IOError:
-                        raise IOError('flock() failed to hold an exclusive lock')
-                    writer = csv.writer(write_output_text_file)
-                    writer.writerow(fieldnames)
-                    row_data = np.squeeze(zstat_data_img.get_fdata()).tolist()
-                    if os.path.basename(self.output_dir).split('-')[0] == 'ses':
-                        row_data.insert(0,os.path.basename(self.output_dir).split('-')[1])
-                        row_data.insert(0,self.output_dir.split('sub-')[1].split('/')[0])
-                    else:
-                        row_data.insert(0,os.path.basename(self.output_dir).split('-')[1])
-                    pdb.set_trace()
-                    writer.writerow(row_data)
-                    # Unlock file
-                    try:
-                        F.flock(write_output_text_file, F.LOCK_UN)
-                        write_output_text_file.close()
-                    except IOError:
-                        raise IOError('flock() failed to unlock file.')
-                # find participant if it exists
-                pdb.set_trace()
-                row_data = np.squeeze(zstat_data_img.get_fdata()).tolist()
-                if os.path.basename(self.output_dir).split('-')[0] == 'ses':
-                    session_id = os.path.basename(self.output_dir).split('-')[1]
-                    row_data.insert(0,session_id)
-                    subject_id = self.output_dir.split('sub-')[1].split('/')[0]    
-                    row_data.insert(0,subject_id)
-                else:
-                    subject_id = os.path.basename(self.output_dir).split('-')[1]
-                    row_data.insert(0,subject_id)
-        """

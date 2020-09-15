@@ -73,6 +73,7 @@ export PATH=/opt/workbench/bin_rh_linux64:${PATH}
 chmod +x -R /run.py /tools /workflow
 
 %runscript
-
+. /opt/Miniconda3/etc/profile.d/conda.sh
+conda activate
 exec /run.py "$@"
 
