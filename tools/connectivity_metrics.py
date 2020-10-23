@@ -68,9 +68,6 @@ class NetworkIO:
         # perform tests on inputted cifti file and parcellate timeseries
         self.cifti_tests()
         
-        # now generate connectivity matrix
-        self.create_network_matrix()
-
     def cifti_tests(self):
         # does CIFTI file exist?
         try:
