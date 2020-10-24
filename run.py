@@ -47,5 +47,9 @@ parser.add_argument('--timeseries_processing',help="Modify timeseries prior to g
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
 
-
-os.system('mpiexec -n {cpus} python /workhorse.py {args}'.format(cpus=str(args.num_cpus),args=args))
+#mpiexec -n numprocs python -m mpi4py -m mod [arg] ..
+if args.batch == 'group':
+    os.system('mpiexec -n {cpus} python /workhorse.py {args}'.format(cpus=str(args.num_cpus),args=args))
+else:
+    print('You specified running an individual participant, but set the "--num_cpus" greater than 1. Reverting back to "--num_cpus"=1...')
+    os.system('mpiexec -n 1 python /workhorse.py {args}'.format(cpus=str(args.num_cpus),args=args))
