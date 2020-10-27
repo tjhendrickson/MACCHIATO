@@ -7,13 +7,17 @@ Created on Fri Oct 23 16:49:56 2020
 """
 
 import argparse
+import argunparse #https://github.com/mbdevpl/argunparse
 import os
+from workflow.core import MACCHIATO_setup
+import pdb
+import json
 
 # specify arguments that MACCHIATO accepts
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--input_dir', help='The directory where the preprocessed derivative needed live',required=True)
-parser.add_argument('--output_dir', help='The directory where the output files should be stored.',required=True)
-parser.add_argument('--group', help='Whether to run this participant by participant or the entire group. Choices are "participant" or "batch". If participant by participant "--participant_label" and "--session_label" must be specified',choices = ['participant','batch'],required=True)
+parser.add_argument('input_dir', help='The directory where the preprocessed derivative needed live')
+parser.add_argument('output_dir', help='The directory where the output files should be stored.')
+parser.add_argument('analysis_level', choices=['participant'],help='Processing stage to be run, only "participant" in this case (see BIDS-Apps specification).')
 parser.add_argument('--participant_label', help='The label of the participant that should be analyzed. The label '
                    'corresponds to sub-<participant_label> from the BIDS spec '
                    '(so it does not include "sub-"). If this parameter is not '
@@ -47,9 +51,22 @@ parser.add_argument('--timeseries_processing',help="Modify timeseries prior to g
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
 
+kwargs = vars(parser.parse_args())
+kwargs['step'] += 1
+prefix = f'python {sys.argv[0]} '
+arg_string = unparser.unparse(**kwargs)
+print(prefix + arg_string)
+
+
 #mpiexec -n numprocs python -m mpi4py -m mod [arg] ..
-if args.batch == 'group':
-    os.system('mpiexec -n {cpus} python /workhorse.py {args}'.format(cpus=str(args.num_cpus),args=args))
+pdb.set_trace()
+"""
+if args.participant_label:
+    if len(args.participant_label) > 1:
+        os.system('mpiexec -n {cpus} python -m mpi4py -m workflow.core {args}'.format(cpus=str(args.num_cpus),args=**vars(args)))
+    else:
+        print('You specified running an individual participant, but set the "--num_cpus" greater than 1. Reverting back to "--num_cpus"=1...')
+        os.system('mpiexec -n 1 python -m mpi4py -m workflow.core {args}'.format(args=**vars(args)))
 else:
-    print('You specified running an individual participant, but set the "--num_cpus" greater than 1. Reverting back to "--num_cpus"=1...')
-    os.system('mpiexec -n 1 python /workhorse.py {args}'.format(cpus=str(args.num_cpus),args=args))
+     os.system('mpiexec -n {cpus} python -m mpi4py -m workflow.core {args}'.format(cpus=str(args.num_cpus),args=**vars(args)))
+"""

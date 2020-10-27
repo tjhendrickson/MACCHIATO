@@ -8,8 +8,10 @@ Created on Thu May  7 17:22:55 2020
 from __future__ import print_function
 import os
 import nibabel
-from .connectivity_metrics import NetworkIO, GraphTheoryIO
-#from timeseries
+import sys
+sys.path.append('../')
+from tools.connectivity_metrics import NetworkIO, GraphTheoryIO
+#from tools.timeseries
 import pdb
 import argparse
 from functools import partial
@@ -23,43 +25,78 @@ from pprint import pprint
 from bids.grabbids import BIDSLayout
 
 # specify arguments that MACCHIATO accepts
+"""
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('args', help='The arguments passed from run.py',required=True)
+parser.add_argument('input_dir', help='The directory where the preprocessed derivative needed live')
+parser.add_argument('output_dir', help='The directory where the output files should be stored.')
+parser.add_argument('analysis_level', choices=['participant'],help='Processing stage to be run, only "participant" in this case (see BIDS-Apps specification).')
+parser.add_argument('--participant_label', help='The label of the participant that should be analyzed. The label '
+                   'corresponds to sub-<participant_label> from the BIDS spec '
+                   '(so it does not include "sub-"). If this parameter is not '
+                   'provided all subjects should be analyzed. Multiple '
+                   'participants can be specified with a space separated list.',
+                   nargs="+")
+parser.add_argument('--session_label', help='The label of the session that should be analyzed. The label '
+                   'corresponds to ses-<session_label> from the BIDS spec '
+                   '(so it does not include "ses-"). If this parameter is not '
+                   'provided all sessions within a subject should be analyzed.',
+                   nargs="+")
+parser.add_argument('--preprocessing_type', help='BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". ',choices=['HCP','fmriprep'],default='HCP')
+parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) outputs for network matrix estimation. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
+parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
+parser.add_argument('--parcellation_file', help='The CIFTI label file to use or used to parcellate the brain. ', required=True)
+parser.add_argument('--parcellation_name', help='Shorthand name of the CIFTI label file. ', required=True)
+parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
+parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['YES','NO'],default='YES')
+parser.add_argument('--network_matrix_calculation', help="What method to employ for network matrix estimation. "
+                                                    " Choices are 'All', 'correlation','partial_correlation', "
+                                                    " 'dynamic_time_warping', 'tangent', 'covariance', 'sparse_inverse_covariance', "
+                                                    "  'precision', 'sparse_inverse_precision'. NOTE: Specifying sparse matrices or dynamic time warping will result in increased computation time. For more information on available methods https://nilearn.github.io/connectivity/index.html#functional-connectivity-and-resting-state", 
+                                                    choices =['All','correlation','partial_correlation',
+                                                              'dynamic_time_warping','covariance',
+                                                              'precision','sparse_inverse_precision',
+                                                              'sparse_inverse_covariance'], default='correlation',nargs='+')
+parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'NONE'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','clustering_coefficient','local_efficiency','strength',
+'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','NONE'], default = 'NONE',nargs='+')
+parser.add_argument('--timeseries_processing',help="Modify timeseries prior to generating network matrices. Choices include: 'entropy','alff','falff','wavelet', 'NONE'.",
+                    choices = ['entropy','alff','falff','wavelet','NONE'],default='NONE')
+parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
-
+"""
 
 class MACCHIATO_setup:
-    def __init__(self,group,preprocessing_type,ICA_outputs,
-                 graph_theory,network_matrix_calculation,input_dir,parcel_name,
-                 parcel_file,fishers_r_to_z_transform,selected_reg_name,
-                 timeseries_processing,combine_resting_scans,**kwargs):
+    def __init__(self,**kwargs):
+
         '''
         Parameters
         ----------
-        group : [participant, batch]
-            Whether to run this participant by participant or the entire group. 
+        input_dir : string
+            The directory where the preprocessed derivative needed live
+        output_dir : string
+            The directory where the outputs from MACCHIATO will be placed
+        analysis_level : [participant]
+            Run participant by participant (part of BIDS specification) 
         preprocessing_type : [HCP, fmriprep]
             BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". 
         ICA_outputs : [Yes, yes, No, no]
             Use ICA (whether FIX or AROMA) outputs for network matrix estimation.
-        graph_theory : 
-            Whether or not to output graph theoretical measures
-        network_matrix_calculation : [All, all, correlation, partial_correlation, dynamic_time_warping, covariance, precision, sparse_inverse_precision, sparse_inverse_covariance]
-            What method to employ for network matrix estimation.
-        input_dir : string
-            The directory where the preprocessed derivative needed live
-        parcel_name : string
-            Shorthand name of the CIFTI label file. 
-        parcel_file : string
-            The CIFTI label file to use or used to parcellate the brain.
-        fishers_r_to_z_transform : [Yes, YES, yes, No, NO, no]
-            Should Fisher's r-to-z transformation be applied?
-        selected_reg_name : string
-            What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"'
-        timeseries_processing : string
-            Whether or not to output wavelet matrices 
         combine_resting_scans : string
             If multiple of the same resting state BIDS file type exist should they be combined?
+        parcellation_file : string
+            The CIFTI label file to use or used to parcellate the brain.
+        parcellation_name : string
+            Shorthand name of the CIFTI label file. 
+        reg_name : string
+            What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"'
+        fishers_r_to_z_transform : [Yes, YES, yes, No, NO, no]
+            Should Fisher's r-to-z transformation be applied?
+        network_matrix_calculation : [All, all, correlation, partial_correlation, dynamic_time_warping, covariance, precision, sparse_inverse_precision, sparse_inverse_covariance]
+            What method to employ for network matrix estimation.
+        graph_theory : 
+            Whether or not to output graph theoretical measures
+        timeseries_processing : string
+            Whether or not to output wavelet matrices 
+
 
         Raises
         ------
@@ -103,20 +140,20 @@ class MACCHIATO_setup:
 
         '''
         # place arguments internal to class
-        self.group = group
-        self.preprocessing_type = preprocessing_type
-        self.ICA_outputs = ICA_outputs
-        self.graph_theory = graph_theory
-        self.network_matrix_calculation = network_matrix_calculation
-        self.input_dir = input_dir
-        self.parcel_name = parcel_name
-        self.parcel_file = parcel_file
-        self.fishers_r_to_z_transform = fishers_r_to_z_transform
-        self.selected_reg_name = selected_reg_name
+        self.input_dir = args[0]
+        self.output_dir = args[1]
+        self.analysis_level = args[2]
+        self.preprocessing_type = args[3]
+        self.ICA_outputs = args[4]
+        self.combine_resting_scans = args[5]
+        self.parcellation_file = args[6]
+        self.parcellation_name = args[7]
+        self.reg_name = args[8]
+        self.apply_Fishers_r_to_z_transform = args[9]
+        self.network_matrix_calculation = args[10]
+        self.graph_theory = args[11]
+        self.timeseries_processing = args[12]
         self.msm_all_reg_name="MSMAll_2_d40_WRN"
-        self.timeseries_processing = timeseries_processing
-        self.combine_resting_scans = combine_resting_scans
-        
         for key in ('participant_label', 'session_label'):
                 if key in kwargs:
                     setattr(self, key, kwargs[key])
@@ -316,7 +353,7 @@ class MACCHIATO_setup:
         # retreive number of, height and width of matrices 
         image_count = len(self.bolds)
         try:
-            read_parcel_file = cifti.read(args.parcellation_file)
+            read_parcel_file = cifti.read(self.parcel_file)
         except TypeError:
             print('This does not look like a CIFTI parcel file. Must exit')
         parcel_file_label_tuple = read_parcel_file[1][0][0][1]
@@ -333,68 +370,35 @@ class MACCHIATO_setup:
         comm.Barrier()    ### Start Stopwatch ###
         t_start = MPI.Wtime() 
         
-        with h5py.File(os.path.join(args.output_dir,'data.hdf5'),'w',driver='mpio',comm=comm) as hdf5:
-            network_matrix_dset = hdf5.create_dataset(name=setupParams['network_matrix_calculation'], shape=(image_count,height,width), dtype='f')
-            network_matrix_dset.attrs['parcel_file'] = args.parcellation_file
-            network_matrix_dset.attrs['parcel_name'] = args.parcellation_name    
+        with h5py.File(os.path.join(self.output_dir,'data.hdf5'),'w',driver='mpio',comm=comm) as hdf5:
+            network_matrix_dset = hdf5.create_dataset(name=self.network_matrix_calculation, shape=(image_count,height,width), dtype='f')
+            network_matrix_dset.attrs['parcel_file'] = self.parcel_file
+            network_matrix_dset.attrs['parcel_name'] = self.parcel_name    
             for i in range(rank, image_count, comm.size):
-                bold = setupParams['bolds'][i]
-                metric_data = execute_MACCHIATO_instances(
-                    preprocessing_type=args.preprocessing_type,
-                    parcel_file=args.parcellation_file,
-                    parcel_name=args.parcellation_name,
-                    selected_reg_name=args.reg_name,
-                    ICA_outputs=setupParams['ICA_outputs'],
-                      fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
-                    combine_resting_scans=setupParams['combine_resting_scans'],
-                    timeseries_processing=setupParams['timeseries_processing'],
-                    network_metric=setupParams['network_matrix_calculation'],
-                    output_dir=args.output_dir, 
-                    graph_theory_metric=setupParams['graph_theory'],
-                    bold=bold)
-                network_matrix_dset[i,:,:] = metric_data
-            """
-            execute_MACCHIATO_instances(preprocessing_type=args.preprocessing_type,
-                    parcel_file=args.parcellation_file,
-                    parcel_name=args.parcellation_name,
-                    selected_reg_name=args.reg_name,
-                    ICA_outputs=setupParams['ICA_outputs'],
-                    fishers_r_to_z_transform=args.apply_Fishers_r_to_z_transform,
-                    combine_resting_scans=setupParams['combine_resting_scans'],
-                    wavelet=setupParams['wavelet'],
-                    network_metric=setupParams['network_matrix_calculation'],
-                    output_dir=args.output_dir, 
-                    graph_theory_metric=setupParams['graph_theory'],
-                    bold=setupParams['bolds'][0])
-            """
-
-#handles all logic of inputted data to run MACCHIATO        
-def execute_MACCHIATO_instances(bold,preprocessing_type,parcel_file,parcel_name,
-                  selected_reg_name,ICA_outputs,
-                  combine_resting_scans,timeseries_processing,network_metric,graph_theory_metric,
-                  output_dir,fishers_r_to_z_transform):
-       
-    if timeseries_processing == 'YES':
-        pass #TODO will be passed to timeseries_metrics.py
-    else:
-        network_metric_init = NetworkIO(output_dir=output_dir, 
+                bold = self.bolds[i]
+                if self.timeseries_processing == 'YES':
+                    pass #TODO will be passed to timeseries_metrics.py
+                else:
+                    network_metric_init = NetworkIO(output_dir=self.output_dir, 
                                         cifti_file=bold, 
-                                        parcel_file=parcel_file, 
-                                        parcel_name=parcel_name, 
-                                        network_metric=network_metric,
-                                        fishers_r_to_z_transform=fishers_r_to_z_transform)
-        if graph_theory_metric == 'NONE':
-            if type(network_metric) == str:
-                metric_data = network_metric_init.create_network_matrix()
-                return metric_data # TODO this logic will have to be much stronger with full implementation
-            else:
-                pass
-        else:
-            GraphTheoryIO(output_dir=output_dir, 
+                                        parcel_file=self.parcel_file, 
+                                        parcel_name=self.parcel_name, 
+                                        network_metric=self.network_matrix_calculation,
+                                        fishers_r_to_z_transform=self.fishers_r_to_z_transform)
+                if self.graph_theory == 'NONE':
+                    if type(self.network_matrix_calculation) == str:
+                        metric_data = network_metric_init.create_network_matrix()
+                        network_matrix_dset[i,:,:]=metric_data
+                    else:
+                        pass
+                else:
+                    GraphTheoryIO(output_dir=self.output_dir, 
                           cifti_file=bold, 
-                          parcel_file=parcel_file, 
-                          parcel_name=parcel_name,
-                          network_metric=network_metric,
-                          fishers_r_to_z_transform=fishers_r_to_z_transform,
-                          graph_theory_metric=graph_theory_metric)
-        
+                          parcel_file=self.parcel_file, 
+                          parcel_name=self.parcel_name,
+                          network_metric=self.network_matrix_calculation,
+                          fishers_r_to_z_transform=self.fishers_r_to_z_transform,
+                          graph_theory_metric=self.graph_theory)
+if __name__ == '__main__':
+    pdb.set_trace()
+    MACCHIATO_setup(sys.argv[1:])
