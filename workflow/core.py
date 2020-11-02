@@ -25,47 +25,9 @@ from pprint import pprint
 from bids.grabbids import BIDSLayout
 
 # specify arguments that MACCHIATO accepts
-"""
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('input_dir', help='The directory where the preprocessed derivative needed live')
-parser.add_argument('output_dir', help='The directory where the output files should be stored.')
-parser.add_argument('analysis_level', choices=['participant'],help='Processing stage to be run, only "participant" in this case (see BIDS-Apps specification).')
-parser.add_argument('--participant_label', help='The label of the participant that should be analyzed. The label '
-                   'corresponds to sub-<participant_label> from the BIDS spec '
-                   '(so it does not include "sub-"). If this parameter is not '
-                   'provided all subjects should be analyzed. Multiple '
-                   'participants can be specified with a space separated list.',
-                   nargs="+")
-parser.add_argument('--session_label', help='The label of the session that should be analyzed. The label '
-                   'corresponds to ses-<session_label> from the BIDS spec '
-                   '(so it does not include "ses-"). If this parameter is not '
-                   'provided all sessions within a subject should be analyzed.',
-                   nargs="+")
-parser.add_argument('--preprocessing_type', help='BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". ',choices=['HCP','fmriprep'],default='HCP')
-parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) outputs for network matrix estimation. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
-parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
-parser.add_argument('--parcellation_file', help='The CIFTI label file to use or used to parcellate the brain. ', required=True)
-parser.add_argument('--parcellation_name', help='Shorthand name of the CIFTI label file. ', required=True)
-parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
-parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['YES','NO'],default='YES')
-parser.add_argument('--network_matrix_calculation', help="What method to employ for network matrix estimation. "
-                                                    " Choices are 'All', 'correlation','partial_correlation', "
-                                                    " 'dynamic_time_warping', 'tangent', 'covariance', 'sparse_inverse_covariance', "
-                                                    "  'precision', 'sparse_inverse_precision'. NOTE: Specifying sparse matrices or dynamic time warping will result in increased computation time. For more information on available methods https://nilearn.github.io/connectivity/index.html#functional-connectivity-and-resting-state", 
-                                                    choices =['All','correlation','partial_correlation',
-                                                              'dynamic_time_warping','covariance',
-                                                              'precision','sparse_inverse_precision',
-                                                              'sparse_inverse_covariance'], default='correlation',nargs='+')
-parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'NONE'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','clustering_coefficient','local_efficiency','strength',
-'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','NONE'], default = 'NONE',nargs='+')
-parser.add_argument('--timeseries_processing',help="Modify timeseries prior to generating network matrices. Choices include: 'entropy','alff','falff','wavelet', 'NONE'.",
-                    choices = ['entropy','alff','falff','wavelet','NONE'],default='NONE')
-parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
-args = parser.parse_args()
-"""
 
 class MACCHIATO_setup:
-    def __init__(self,**kwargs):
+    def __init__(self,args_dict):
 
         '''
         Parameters
@@ -140,23 +102,24 @@ class MACCHIATO_setup:
 
         '''
         # place arguments internal to class
-        self.input_dir = args[0]
-        self.output_dir = args[1]
-        self.analysis_level = args[2]
-        self.preprocessing_type = args[3]
-        self.ICA_outputs = args[4]
-        self.combine_resting_scans = args[5]
-        self.parcellation_file = args[6]
-        self.parcellation_name = args[7]
-        self.reg_name = args[8]
-        self.apply_Fishers_r_to_z_transform = args[9]
-        self.network_matrix_calculation = args[10]
-        self.graph_theory = args[11]
-        self.timeseries_processing = args[12]
+        self.input_dir = args_dict.get('--input_dir')
+        self.output_dir = args_dict.get('--output_dir')
+        self.analysis_level = args_dict.get('--analysis_level')
+        self.preprocessing_type = args_dict.get('--preprocessing_type')
+        self.ICA_outputs = args_dict.get('--use_ICA_outputs')
+        self.combine_resting_scans = args_dict.get('--combine_resting_scan')
+        self.parcellation_file = args_dict.get('--parcellation_file')
+        self.parcellation_name = args_dict.get('--parcellation_name')
+        self.reg_name = args_dict.get('--reg_name')
+        self.apply_Fishers_r_to_z_transform = args_dict.get('--apply_Fishers_r_to_z_transform')
+        self.network_matrix_calculation = args_dict.get('--network_matrix_calculation')
+        self.graph_theory = args_dict.get('--graph_theory')
+        self.timeseries_processing = args_dict.get('--timeseries_processing')
         self.msm_all_reg_name="MSMAll_2_d40_WRN"
-        for key in ('participant_label', 'session_label'):
-                if key in kwargs:
-                    setattr(self, key, kwargs[key])
+        if '--participant_label' in args_dict:
+            self.participant_label = args_dict.get('--participant_label')
+        if '--session_label' in args_dict:
+            self.session_label = args_dict.get('--session_label')
         
         # run workflow logger
         self.workflow_logger()
@@ -169,26 +132,10 @@ class MACCHIATO_setup:
         Ensures arguments specified to MACCHIATO are parsed correctly
         Prints specified arguments to standard output (STDOUT)
         '''
-        if self.group == 'batch':
-            try:
-                self.layout = BIDSLayout(os.path.join(self.input_dir))
-            except: 
-                raise TypeError('Input folder: {input_dir} does not look like a BIDS folder or {input_dir} is not a path to a folder. '.format(input_dir=self.input_dir))
-        elif self.group == 'participant':
-            assert(self.participant_label or self.session_label), 'If "--group participant" is specified, either --participant_label and/or --session_label must also be specified. Exiting.'
-            if self.participant_label and self.session_label:
-                try:
-                    pdb.set_trace()
-                    self.layout = BIDSLayout(os.path.join(self.input_dir,self.participant_label,self.session_label))
-                except:
-                    raise TypeError('Input folder: {input_dir} does not look like a BIDS folder or {input_dir} is not a path to a folder. '.format(input_dir=os.path.join(self.input_dir,self.participant_label,self.session_label)))
-            elif self.participant_label:
-                try:
-                    self.layout = BIDSLayout(os.path.join(self.input_dir,self.participant_label))
-                except:
-                    raise TypeError('Input folder: {input_dir} does not look like a BIDS folder or {input_dir} is not a path to a folder. '.format(input_dir=os.path.join(self.input_dir,self.participant_label)))
-            # cannot forsee someone just passing session_label, however if that happens this will have to be built out        
-            #elif self.session_label
+        try:
+            self.layout = BIDSLayout(os.path.join(self.input_dir))
+        except: 
+            raise TypeError('Input folder: {input_dir} does not look like a BIDS folder or {input_dir} is not a path to a folder. '.format(input_dir=self.input_dir))
         if self.combine_resting_scans == 'Yes' or self.combine_resting_scans == 'yes':
             self.combine_resting_scans = 'YES'
         elif self.combine_resting_scans == 'No' or self.combine_resting_scans == 'no':
@@ -213,12 +160,11 @@ class MACCHIATO_setup:
                                                'tangent','covariance', 'precision',
                                                'sparse_inverse_precision','sparse_inverse_covariance']
         print("Running MACCHIATO ")
-        print('\t-Level that MACCHIATO will run on: %s' %(str(self.group)))
-        if self.group == 'participant':
-            if self.participant_label:
-                print('\t-Participant ID: %s' %str(self.participant_label))
-            if self.session_label:
-                print('\t-Session ID: %s' %str(self.session_label))
+        print('\t-Level that MACCHIATO will run on: %s' %(str(self.analysis_level)))
+        if self.participant_label:
+            print('\t-Participant ID: %s' %str(self.participant_label))
+        if self.session_label:
+            print('\t-Session ID: %s' %str(self.session_label))
         print('\t-Parcellation file to be used to parcellate outputs: %s' %str(self.parcel_file))
         print('\t-Short hand parcellation name to be used: %s' %str(self.parcel_name))
         print('\t-Network matrix metric/s to compute: %s' %(self.network_matrix_calculation))
@@ -400,5 +346,11 @@ class MACCHIATO_setup:
                           fishers_r_to_z_transform=self.fishers_r_to_z_transform,
                           graph_theory_metric=self.graph_theory)
 if __name__ == '__main__':
+    arg_string = sys.argv[1:]
+    args_dict = {}
     pdb.set_trace()
-    MACCHIATO_setup(sys.argv[1:])
+    for arg in arg_string:
+        key=arg.split('=')[0]
+        value=arg.split('=')[1]
+        args_dict[key] = value
+    MACCHIATO_setup(args_dict)

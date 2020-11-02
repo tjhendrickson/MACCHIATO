@@ -7,11 +7,12 @@ Created on Fri Oct 23 16:49:56 2020
 """
 
 import argparse
-import argunparse #https://github.com/mbdevpl/argunparse
+from argunparse  import ArgumentUnparser #https://github.com/mbdevpl/argunparse
 import os
 from workflow.core import MACCHIATO_setup
 import pdb
 import json
+import sys
 
 # specify arguments that MACCHIATO accepts
 parser = argparse.ArgumentParser(description='')
@@ -51,22 +52,20 @@ parser.add_argument('--timeseries_processing',help="Modify timeseries prior to g
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
 
+# unparse arguments to feed into main workflow
 kwargs = vars(parser.parse_args())
-kwargs['step'] += 1
-prefix = f'python {sys.argv[0]} '
+unparser = ArgumentUnparser()
 arg_string = unparser.unparse(**kwargs)
-print(prefix + arg_string)
-
+pdb.set_trace()
 
 #mpiexec -n numprocs python -m mpi4py -m mod [arg] ..
-pdb.set_trace()
-"""
+
 if args.participant_label:
     if len(args.participant_label) > 1:
-        os.system('mpiexec -n {cpus} python -m mpi4py -m workflow.core {args}'.format(cpus=str(args.num_cpus),args=**vars(args)))
+        os.system('./start_workflow_mpi.sh {cpus} {args}'.format(cpus=str(args.num_cpus),args=arg_string))
     else:
         print('You specified running an individual participant, but set the "--num_cpus" greater than 1. Reverting back to "--num_cpus"=1...')
-        os.system('mpiexec -n 1 python -m mpi4py -m workflow.core {args}'.format(args=**vars(args)))
+        args.num_cpus=1
+        os.system('./start_workflow_mpi.sh {cpus} {args}'.format(cpus=str(args.num_cpus),args=arg_string))
 else:
-     os.system('mpiexec -n {cpus} python -m mpi4py -m workflow.core {args}'.format(cpus=str(args.num_cpus),args=**vars(args)))
-"""
+    os.system('./start_workflow_mpi.sh {cpus} {args}'.format(cpus=str(args.num_cpus),args=arg_string))
