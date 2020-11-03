@@ -56,16 +56,15 @@ args = parser.parse_args()
 kwargs = vars(parser.parse_args())
 unparser = ArgumentUnparser()
 arg_string = unparser.unparse(**kwargs)
-pdb.set_trace()
 
 #mpiexec -n numprocs python -m mpi4py -m mod [arg] ..
 
 if args.participant_label:
     if len(args.participant_label) > 1:
-        os.system('./start_workflow_mpi.sh {cpus} {args}'.format(cpus=str(args.num_cpus),args=arg_string))
+        os.system('mpiexec -n {cpus} python -m mpi4py -m workflow.core {args}'.format(cpus=str(args.num_cpus),args=arg_string))
     else:
         print('You specified running an individual participant, but set the "--num_cpus" greater than 1. Reverting back to "--num_cpus"=1...')
         args.num_cpus=1
-        os.system('./start_workflow_mpi.sh {cpus} {args}'.format(cpus=str(args.num_cpus),args=arg_string))
+        os.system('mpiexec -n 1 python -m mpi4py -m workflow.core {args}'.format(args=arg_string))
 else:
-    os.system('./start_workflow_mpi.sh {cpus} {args}'.format(cpus=str(args.num_cpus),args=arg_string))
+    os.system('mpiexec -n {cpus} python -m mpi4py -m workflow.core {args}'.format(cpus=str(args.num_cpus),args=arg_string))
