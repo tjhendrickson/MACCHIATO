@@ -110,7 +110,7 @@ class MACCHIATO_setup:
         self.combine_resting_scans = args_dict.get('--combine_resting_scan')
         self.parcellation_file = args_dict.get('--parcellation_file')
         self.parcellation_name = args_dict.get('--parcellation_name')
-        self.reg_name = args_dict.get('--reg_name')
+        self.selected_reg_name = args_dict.get('--reg_name')
         self.apply_Fishers_r_to_z_transform = args_dict.get('--apply_Fishers_r_to_z_transform')
         self.network_matrix_calculation = args_dict.get('--network_matrix_calculation')
         self.graph_theory = args_dict.get('--graph_theory')
@@ -118,9 +118,13 @@ class MACCHIATO_setup:
         self.msm_all_reg_name="MSMAll_2_d40_WRN"
         if '--participant_label' in args_dict:
             self.participant_label = args_dict.get('--participant_label')
+        else:
+            self.participant_label = None    
         if '--session_label' in args_dict:
             self.session_label = args_dict.get('--session_label')
-        
+        else:
+            self.session_label = None
+
         # run workflow logger
         self.workflow_logger()
         
@@ -165,10 +169,10 @@ class MACCHIATO_setup:
             print('\t-Participant ID: %s' %str(self.participant_label))
         if self.session_label:
             print('\t-Session ID: %s' %str(self.session_label))
-        print('\t-Parcellation file to be used to parcellate outputs: %s' %str(self.parcel_file))
-        print('\t-Short hand parcellation name to be used: %s' %str(self.parcel_name))
+        print('\t-Parcellation file to be used to parcellate outputs: %s' %str(self.parcellation_file))
+        print('\t-Short hand parcellation name to be used: %s' %str(self.parcellation_name))
         print('\t-Network matrix metric/s to compute: %s' %(self.network_matrix_calculation))
-        print("\t-Whether or not to compute Fisher's r-to-z transform to network matrices: %s" %(self.fishers_r_to_z_transform))
+        print("\t-Whether or not to compute Fisher's r-to-z transform to network matrices: %s" %(self.apply_Fishers_r_to_z_transform))
         print('\t-Timeseries processing method to apply: %s' %(self.timeseries_processing))
         print('\t-Graph theory metric/s to compute: %s' %(self.graph_theory))
         print('\t-Input registration file to be used: %s' %str(self.selected_reg_name))
@@ -180,85 +184,129 @@ class MACCHIATO_setup:
     def create_bold_lists(self):
         
         '''
-        
         Generates list or list of lists of bold timeseries paths for downstream processing
 
         Returns
         -------
         TYPE list
             Paths to bold timeseries
-
         '''
-        
+        # TODO need to incorporate the instances in which participant label and session label BOTH exist
         if self.combine_resting_scans == 'NO':
             if self.preprocessing_type == 'HCP':
                 # use ICA outputs
                 if self.ICA_outputs == 'YES':
                     self.ICA_string="_FIXclean"
                     if self.selected_reg_name == self.msm_all_reg_name:
-                        if self.group == 'batch':
+                        if not self.participant_label and not self.session_label:
                             self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",task='rest') if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
-                        elif self.group == 'participant':
-                            pass 
+                        elif self.participant_label and not self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='clean',extensions="dtseries.nii",task='rest') if self.msm_all_reg_name+'_hp2000_clean' in f.filename] 
+                        elif not self.participant_label and self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='clean',extensions="dtseries.nii",task='rest') if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
+                        else:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='clean',extensions="dtseries.nii",task='rest') if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
                     else:
-                        if self.group == 'batch':
+                        if not self.participant_label and not self.session_label:
                             self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii", task='rest') if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
+                        elif self.participant_label and not self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='clean',extensions="dtseries.nii", task='rest') if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
+                        elif not self.participant_label and self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='clean',extensions="dtseries.nii",task='rest') if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
+                        else:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='clean',extensions="dtseries.nii",task='rest') if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
+
                 # do not use ICA outputs
                 else:
                     self.ICA_string=""
                     if self.selected_reg_name == self.msm_all_reg_name:
-                        if self.group == 'batch':
+                        if not self.participant_label and not self.session_label:
                             self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest') if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                        elif self.participant_label and not self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii", task='rest') if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                        elif not self.participant_label and self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii", task='rest') if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                        else:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii", task='rest') if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
                     else:
-                        if self.group == 'batch':
+                        if not self.participant_label and not self.session_label:
                             self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
+                        elif self.participant_label and not self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
+                        elif not self.participant_label and self.session_label:
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
+                        else:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
             elif self.preprocessing_type == 'fmriprep':
                 #use ICA outputs
                 if self.ICA_outputs == 'YES':
                     self.ICA_string="_AROMAclean"
-                    if self.group == 'batch':
+                    if not self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
+                    elif self.participant_label and not self.session_label:
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
+                    elif not self.participant_label and self.session_label:
+                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
+                    else:
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
                 # do not use ICA outputs
                 else:
                     self.ICA_string=""
-                    if self.group == 'batch':
+                    if not self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'preproc' in f.filename]
+                    elif self.participant_label and not self.session_label:
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='bold',task='rest') if 'preproc' in f.filename]
+                    elif not self.participant_label and self.session_label:
+                        self.bolds = [f.filename for f in self.layout.get(session =self.session_label,type='bold',task='rest') if 'preproc' in f.filename]
+                    else:
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session =self.session_label,type='bold',task='rest') if 'preproc' in f.filename]
                 self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
         else:
-            self.combined_bolds_list = []
+            self.combined_bolds_list = [] # will combine within one scanning session no matter how many resting state scans collected
             if self.layout.get_sessions() > 0:
-                for scanning_session in self.layout.get_sessions():
-                    # retreive subject id that is associated with session id and parse data with subject and session id
-                    for subject in self.layout.get_subjects(session=scanning_session):
-                        if self.preprocessing_type == 'HCP':
-                            # use ICA outputs
-                            if self.ICA_outputs == 'YES':
-                                self.ICA_string="_FIXclean"
-                                if self.selected_reg_name == self.msm_all_reg_name:
-                                    self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
-                                else:
-                                    self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
-                            # do not use ICA outputs
+                # retreive sessions data based on inputted (or not) participant and session labels
+                if not self.participant_label and not self.session_label:
+                    scanning_sessions = self.layout.get_sessions()
+                elif self.participant_label and not self.session_label:
+                    scanning_sessions = self.layout.get_sessions(subject=self.participant_label)
+                elif not self.participant_label and self.session_label:
+                    scanning_sessions = self.layout.get_sessions(session=self.session_label)
+                else:
+                    scanning_sessions = self.layout.get_sessions(session=self.session_label, subject=self.participant_label)
+                for subject in self.layout.get_subjects(session=scanning_sessions):
+                    if self.preprocessing_type == 'HCP':
+                        # use ICA outputs
+                        if self.ICA_outputs == 'YES':
+                            self.ICA_string="_FIXclean"
+                            if self.selected_reg_name == self.msm_all_reg_name:
+                                self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
                             else:
-                                self.ICA_string=""
-                                if self.selected_reg_name == self.msm_all_reg_name:
-                                    self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
-                                else:
-                                    self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
-                        elif self.preprocessing_type == 'fmriprep':
-                            #use ICA outputs
-                            if self.ICA_outputs == 'YES':
-                                self.ICA_string="_AROMAclean"
-                                self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest',subject=subject,session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
-                            # do not use ICA outputs
+                                self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
+                        # do not use ICA outputs
+                        else:
+                            self.ICA_string=""
+                            if self.selected_reg_name == self.msm_all_reg_name:
+                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
                             else:
-                                self.ICA_string=""
-                                self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'preproc' in f.filename]
-                            self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
-                        if len(self.bolds) == 2:
-                            self.combined_bolds_list.append(self.bolds)
+                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
+                    elif self.preprocessing_type == 'fmriprep':
+                        #use ICA outputs
+                        if self.ICA_outputs == 'YES':
+                            self.ICA_string="_AROMAclean"
+                            self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest',subject=subject,session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
+                        # do not use ICA outputs
+                        else:
+                            self.ICA_string=""
+                            self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'preproc' in f.filename]
+                        self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
+                    self.combined_bolds_list.append(self.bolds)
             else:
-                for scanning_session in self.layout.get_subjects():
+                # retreive subject data based on inputted (or not) participant label
+                if not self.participant_label:
+                    scanning_sessions = self.layout.get_subjects()
+                elif self.participant_label:
+                    scanning_sessions = self.layout.get_subjects(subject=self.participant_label)
+                for scanning_session in scanning_sessions:
                     if self.preprocessing_type == 'HCP':
                         # use ICA outputs
                         if self.ICA_outputs == 'YES':
@@ -284,9 +332,8 @@ class MACCHIATO_setup:
                             self.ICA_string=""
                             self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'preproc' in f.filename]
                         self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
-                    if len(self.bolds) == 2:
-                        self.combined_bolds_list.append(self.bolds)
-            self.bolds = self.combined_bolds_list
+                    self.combined_bolds_list.append(self.bolds)
+        self.bolds = self.combined_bolds_list
     
     # TODO incorporate variables into class
     def execute_MACCHIATO_instances(self):
@@ -299,7 +346,7 @@ class MACCHIATO_setup:
         # retreive number of, height and width of matrices 
         image_count = len(self.bolds)
         try:
-            read_parcel_file = cifti.read(self.parcel_file)
+            read_parcel_file = cifti.read(self.parcellation_file)
         except TypeError:
             print('This does not look like a CIFTI parcel file. Must exit')
         parcel_file_label_tuple = read_parcel_file[1][0][0][1]
@@ -318,8 +365,8 @@ class MACCHIATO_setup:
         
         with h5py.File(os.path.join(self.output_dir,'data.hdf5'),'w',driver='mpio',comm=comm) as hdf5:
             network_matrix_dset = hdf5.create_dataset(name=self.network_matrix_calculation, shape=(image_count,height,width), dtype='f')
-            network_matrix_dset.attrs['parcel_file'] = self.parcel_file
-            network_matrix_dset.attrs['parcel_name'] = self.parcel_name    
+            network_matrix_dset.attrs['parcel_file'] = self.parcellation_file
+            network_matrix_dset.attrs['parcel_name'] = self.parcellation_name    
             for i in range(rank, image_count, comm.size):
                 bold = self.bolds[i]
                 if self.timeseries_processing == 'YES':
@@ -327,10 +374,10 @@ class MACCHIATO_setup:
                 else:
                     network_metric_init = NetworkIO(output_dir=self.output_dir, 
                                         cifti_file=bold, 
-                                        parcel_file=self.parcel_file, 
-                                        parcel_name=self.parcel_name, 
+                                        parcel_file=self.parcellation_file, 
+                                        parcel_name=self.parcellation_name, 
                                         network_metric=self.network_matrix_calculation,
-                                        fishers_r_to_z_transform=self.fishers_r_to_z_transform)
+                                        fishers_r_to_z_transform=self.apply_Fishers_r_to_z_transform)
                 if self.graph_theory == 'NONE':
                     if type(self.network_matrix_calculation) == str:
                         metric_data = network_metric_init.create_network_matrix()
@@ -340,15 +387,14 @@ class MACCHIATO_setup:
                 else:
                     GraphTheoryIO(output_dir=self.output_dir, 
                           cifti_file=bold, 
-                          parcel_file=self.parcel_file, 
-                          parcel_name=self.parcel_name,
+                          parcel_file=self.parcellation_file, 
+                          parcel_name=self.parcellation_name,
                           network_metric=self.network_matrix_calculation,
-                          fishers_r_to_z_transform=self.fishers_r_to_z_transform,
+                          fishers_r_to_z_transform=self.apply_Fishers_r_to_z_transform,
                           graph_theory_metric=self.graph_theory)
 if __name__ == '__main__':
     arg_string = sys.argv[1:]
     args_dict = {}
-    pdb.set_trace()
     for arg in arg_string:
         key=arg.split('=')[0]
         value=arg.split('=')[1]
