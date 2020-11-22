@@ -130,6 +130,9 @@ class MACCHIATO_setup:
         
         # create bold lists
         self.create_bold_lists()
+
+        # generate HDF5 outputs
+        self.execute_MACCHIATO_instances()
         
     def workflow_logger(self):
         '''
@@ -263,7 +266,7 @@ class MACCHIATO_setup:
                 self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
         else:
             self.combined_bolds_list = [] # will combine within one scanning session no matter how many resting state scans collected
-            if self.layout.get_sessions() > 0:
+            if len(self.layout.get_sessions()) > 0:
                 # retreive sessions data based on inputted (or not) participant and session labels
                 if not self.participant_label and not self.session_label:
                     scanning_sessions = self.layout.get_sessions()
@@ -274,32 +277,33 @@ class MACCHIATO_setup:
                 else:
                     scanning_sessions = self.layout.get_sessions(session=self.session_label, subject=self.participant_label)
                 for subject in self.layout.get_subjects(session=scanning_sessions):
-                    if self.preprocessing_type == 'HCP':
-                        # use ICA outputs
-                        if self.ICA_outputs == 'YES':
-                            self.ICA_string="_FIXclean"
-                            if self.selected_reg_name == self.msm_all_reg_name:
-                                self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
+                    for scanning_session in self.layout.get_sessions(subject=subject):
+                        if self.preprocessing_type == 'HCP':
+                            # use ICA outputs
+                            if self.ICA_outputs == 'YES':
+                                self.ICA_string="_FIXclean"
+                                if self.selected_reg_name == self.msm_all_reg_name:
+                                    self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
+                                else:
+                                    self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
+                            # do not use ICA outputs
                             else:
-                                self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
-                        # do not use ICA outputs
-                        else:
-                            self.ICA_string=""
-                            if self.selected_reg_name == self.msm_all_reg_name:
-                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                                self.ICA_string=""
+                                if self.selected_reg_name == self.msm_all_reg_name:
+                                    self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
+                                else:
+                                    self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
+                        elif self.preprocessing_type == 'fmriprep':
+                            #use ICA outputs
+                            if self.ICA_outputs == 'YES':
+                                self.ICA_string="_AROMAclean"
+                                self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest',subject=subject,session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
+                            # do not use ICA outputs
                             else:
-                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
-                    elif self.preprocessing_type == 'fmriprep':
-                        #use ICA outputs
-                        if self.ICA_outputs == 'YES':
-                            self.ICA_string="_AROMAclean"
-                            self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest',subject=subject,session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
-                        # do not use ICA outputs
-                        else:
-                            self.ICA_string=""
-                            self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'preproc' in f.filename]
-                        self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
-                    self.combined_bolds_list.append(self.bolds)
+                                self.ICA_string=""
+                                self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'preproc' in f.filename]
+                            self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
+                        self.combined_bolds_list.append(self.bolds)
             else:
                 # retreive subject data based on inputted (or not) participant label
                 if not self.participant_label:
