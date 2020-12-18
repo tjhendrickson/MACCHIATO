@@ -40,8 +40,8 @@ class MACCHIATO_setup:
             Run participant by participant (part of BIDS specification) 
         preprocessing_type : [HCP, fmriprep]
             BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". 
-        ICA_outputs : [Yes, yes, No, no]
-            Use ICA (whether FIX or AROMA) outputs for network matrix estimation.
+        denoised_outputs : [Yes, yes, No, no]
+            Use denoised (whether FIX, AROMA, or scrubbed depending on pipeline) outputs for network matrix estimation.
         combine_resting_scans : string
             If multiple of the same resting state BIDS file type exist should they be combined?
         parcellation_file : string
@@ -70,8 +70,8 @@ class MACCHIATO_setup:
         Returns a dictionary with keys and values labeled below
         -------
         layout : bids.grabbids.BIDSLayout object describing BIDS dataset
-        ICA_outputs : TYPE
-            Parsed ICA_outputs string
+        denoised_outputs : TYPE
+            Parsed denoised_outputs string
         graph_theory : string or list
             Parsed graph theory metrics to calculate downstream
         network_matrix_calculation : string or list
@@ -87,7 +87,7 @@ class MACCHIATO_setup:
         -------
         >>> parameters = MACCHIATO_setup(group = group,
             preprocessing_type = preprocessing_type,
-            ICA_outputs = use_ICA_outputs,
+            denoised_outputs = use_denoised_outputs,
             graph_theory = graph_theory,
             network_matrix_calculation = network_matrix_calculation,
             input_dir = input_dir,
@@ -97,7 +97,7 @@ class MACCHIATO_setup:
             selected_reg_name = reg_name,
             timeseries_processing = timeseries_processing,
             combine_resting_scans = combine_resting_scans)
-        >>> parameters['ICA_outputs']
+        >>> parameters['denoised_outputs']
         >>> 'YES'
 
         '''
@@ -106,7 +106,7 @@ class MACCHIATO_setup:
         self.output_dir = args_dict.get('--output_dir')
         self.analysis_level = args_dict.get('--analysis_level')
         self.preprocessing_type = args_dict.get('--preprocessing_type')
-        self.ICA_outputs = args_dict.get('--use_ICA_outputs')
+        self.denoised_outputs = args_dict.get('--use_denoised_outputs')
         self.combine_resting_scans = args_dict.get('--combine_resting_scan')
         self.parcellation_file = args_dict.get('--parcellation_file')
         self.parcellation_name = args_dict.get('--parcellation_name')
@@ -151,10 +151,10 @@ class MACCHIATO_setup:
             self.timeseries_processing = self.timeseries_processing[0]
         
          # use ICA outputs
-        if self.ICA_outputs == 'yes' or self.ICA_outputs == 'Yes':
-            self.ICA_outputs = 'YES'
+        if self.denoised_outputs == 'yes' or self.denoised_outputs == 'Yes':
+            self.denoised_outputs = 'YES'
         else:
-            self.ICA_outputs = 'NO'
+            self.denoised_outputs = 'NO'
         # if all graph theory metrics are requested, transform arg from string to list
         if not self.graph_theory == 'NONE' :
             if self.graph_theory == 'All':
@@ -180,7 +180,7 @@ class MACCHIATO_setup:
         print('\t-Graph theory metric/s to compute: %s' %(self.graph_theory))
         print('\t-Input registration file to be used: %s' %str(self.selected_reg_name))
         print('\t-The preprocessing pipeline that the input comes from: %s' %str(self.preprocessing_type))
-        print('\t-Use ICA outputs: %s' %str(self.ICA_outputs))
+        print('\t-Use ICA outputs: %s' %str(self.denoised_outputs))
         print('\t-Combine matrices/timeseries from resting state pairs within the same session: %s' %str(self.combine_resting_scans))
         print('\n')
         
@@ -198,7 +198,7 @@ class MACCHIATO_setup:
         if self.combine_resting_scans == 'NO':
             if self.preprocessing_type == 'HCP':
                 # use ICA outputs
-                if self.ICA_outputs == 'YES':
+                if self.denoised_outputs == 'YES':
                     self.ICA_string="_FIXclean"
                     if self.selected_reg_name == self.msm_all_reg_name:
                         if not self.participant_label and not self.session_label:
@@ -242,7 +242,7 @@ class MACCHIATO_setup:
                             self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii", task='rest') if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
             elif self.preprocessing_type == 'fmriprep':
                 #use ICA outputs
-                if self.ICA_outputs == 'YES':
+                if self.denoised_outputs == 'YES':
                     self.ICA_string="_AROMAclean"
                     if not self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'smoothAROMAnonaggr' in f.filename]
@@ -264,6 +264,14 @@ class MACCHIATO_setup:
                     else:
                         self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session =self.session_label,type='bold',task='rest') if 'preproc' in f.filename]
                 self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
+            elif self.preprocessing_type == 'ABCD':
+                 # use filered outputs
+                if self.denoised_outputs == 'YES':
+                    self.ICA_string="_filtered"
+                    
+                else:
+                    pass
+                    
         else:
             self.combined_bolds_list = [] # will combine within one scanning session no matter how many resting state scans collected
             if len(self.layout.get_sessions()) > 0:
@@ -280,7 +288,7 @@ class MACCHIATO_setup:
                     for scanning_session in self.layout.get_sessions(subject=subject):
                         if self.preprocessing_type == 'HCP':
                             # use ICA outputs
-                            if self.ICA_outputs == 'YES':
+                            if self.denoised_outputs == 'YES':
                                 self.ICA_string="_FIXclean"
                                 if self.selected_reg_name == self.msm_all_reg_name:
                                     self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=subject,session=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
@@ -295,7 +303,7 @@ class MACCHIATO_setup:
                                     self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
                         elif self.preprocessing_type == 'fmriprep':
                             #use ICA outputs
-                            if self.ICA_outputs == 'YES':
+                            if self.denoised_outputs == 'YES':
                                 self.ICA_string="_AROMAclean"
                                 self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest',subject=subject,session=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
                             # do not use ICA outputs
@@ -303,6 +311,22 @@ class MACCHIATO_setup:
                                 self.ICA_string=""
                                 self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest') if 'preproc' in f.filename]
                             self.bolds_ref = [f.filename for f in self.layout.get(type='boldref',task='rest')]
+                        elif self.preprocessing_type == 'ABCD':    
+                            if self.denoised_outputs == 'YES':
+                                self.ICA_string='_ABCDclean'
+                                self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='timeseries',extensions="dtseries.nii",task='rest') if 'desc-filtered' in f.filename]
+                                if not len(self.bolds) > 0:
+                                    self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='Atlas',extensions="dtseries.nii",task='rest') if 'DCANBOLDProc' in f.filename]
+                            else:
+                                self.ICA_string=''
+                        if not self.participant_label and not self.session_label:
+                        self.bolds = [f.filename for f in self.layout.get(type='timeseries',extensions="dtseries.nii",task='rest') if 'desc-filtered' in f.filename]
+                    elif self.participant_label and not self.session_label:
+                         
+                    elif not self.participant_label and self.session_label:
+                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='timeseries',extensions="dtseries.nii",task='rest') if 'desc-filtered' in f.filename]
+                    else:
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='timeseries',extensions="dtseries.nii",task='rest') if 'desc-filtered' in f.filename]
                         self.combined_bolds_list.append(self.bolds)
             else:
                 # retreive subject data based on inputted (or not) participant label
@@ -313,7 +337,7 @@ class MACCHIATO_setup:
                 for scanning_session in scanning_sessions:
                     if self.preprocessing_type == 'HCP':
                         # use ICA outputs
-                        if self.ICA_outputs == 'YES':
+                        if self.denoised_outputs == 'YES':
                             self.ICA_string="_FIXclean"
                             if self.selected_reg_name == self.msm_all_reg_name:
                                 self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",task='rest',subject=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
@@ -328,7 +352,7 @@ class MACCHIATO_setup:
                                 self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii", task='rest',subject=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
                     elif self.preprocessing_type == 'fmriprep':
                         #use ICA outputs
-                        if self.ICA_outputs == 'YES':
+                        if self.denoised_outputs == 'YES':
                             self.ICA_string="_AROMAclean"
                             self.bolds = [f.filename for f in self.layout.get(type='bold',task='rest',subject=scanning_session) if 'smoothAROMAnonaggr' in f.filename]
                         # do not use ICA outputs

@@ -30,8 +30,8 @@ parser.add_argument('--session_label', help='The label of the session that shoul
                    '(so it does not include "ses-"). If this parameter is not '
                    'provided all sessions within a subject should be analyzed.',
                    nargs="+")
-parser.add_argument('--preprocessing_type', help='BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". ',choices=['HCP','fmriprep'],default='HCP')
-parser.add_argument('--use_ICA_outputs',help='Use ICA (whether FIX or AROMA) outputs for network matrix estimation. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
+parser.add_argument('--preprocessing_type', help='BIDS-apps preprocessing pipeline run on data. Choices include "HCP" and "fmriprep". ',choices=['HCP','fmriprep','ABCD'],default='HCP')
+parser.add_argument('--use_denoised_outputs',help='Use denoised (whether FIX, AROMA, or scrubbed depending on pipeline) outputs for network matrix estimation. Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='Yes')
 parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
 parser.add_argument('--parcellation_file', help='The CIFTI label file to use or used to parcellate the brain. ', required=True)
 parser.add_argument('--parcellation_name', help='Shorthand name of the CIFTI label file. ', required=True)
