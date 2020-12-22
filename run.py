@@ -35,7 +35,7 @@ parser.add_argument('--use_denoised_outputs',help='Use denoised (whether FIX, AR
 parser.add_argument('--combine_resting_scans',help='If multiple of the same resting state BIDS file type exist should they be combined? Choices include "Y/yes" or "N/no".',choices=['Yes','yes','No','no'],default='No')
 parser.add_argument('--parcellation_file', help='The CIFTI label file to use or used to parcellate the brain. ', required=True)
 parser.add_argument('--parcellation_name', help='Shorthand name of the CIFTI label file. ', required=True)
-parser.add_argument('--reg_name',help='What type of registration do you want to use? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
+parser.add_argument('--reg_name',help='What type of registration do you want to use (relevant to HCP outputs only!)? Choices are "MSMAll_2_d40_WRN" and "NONE"',choices = ['NONE','MSMAll_2_d40_WRN'],default='MSMAll_2_d40_WRN')
 parser.add_argument('--apply_Fishers_r_to_z_transform', help="For correlation outputs, should Fisher's r-to-z transformation be applied? Choises are 'Yes' or 'No'.", choices = ['YES','NO'],default='YES')
 parser.add_argument('--network_matrix_calculation', help="What method to employ for network matrix estimation. "
                                                     " Choices are 'All', 'correlation','partial_correlation', "
