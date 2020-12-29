@@ -296,8 +296,9 @@ class MACCHIATO_setup:
                             filtered = 'NO'
                         else:
                             filtered = 'YES'
-                    if filtered == 'YES': #TODO: write function to filter all bolds with respective TSV files
-                        pass
+                    if filtered == 'NO':
+                        pass 
+                        
                 else: # TODO: paths and logic needs to change below
                     if not self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(filename))] # traditional outputs
@@ -305,29 +306,29 @@ class MACCHIATO_setup:
                             self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                             filtered = 'NO' # TODO: will have to apply filtered outputs myself with TSV file
                         else:
-                        filtered = 'YES'
+                            filtered = 'YES'
                     elif self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(filename))] # traditional outputs
                         if not self.bolds > 0:
                             self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                             filtered = 'NO' # TODO: will have to apply filtered outputs myself with TSV file
                         else:
-                        filtered = 'YES'
+                            filtered = 'YES'
                     elif not self.participant_label and self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(filename))] # traditional outputs
-                    if not self.bolds > 0:
-                    self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
-                    filtered = 'NO' # TODO: will have to apply filtered outputs myself with TSV file
+                        if not self.bolds > 0:
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
+                            filtered = 'NO' # TODO: will have to apply filtered outputs myself with TSV file
+                        else:
+                            filtered = 'YES'
                     else:
-                    filtered = 'YES'
-                    else:
-                    self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(filename))] # traditional outputs
-                    if not self.bolds > 0:
-                    self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
-                    filtered = 'NO' # TODO: will have to apply filtered outputs myself with TSV file
-                    else:
-                    filtered = 'YES'
-                    
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(filename))] # traditional outputs
+                        if not self.bolds > 0:
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
+                            filtered = 'NO' # TODO: will have to apply filtered outputs myself with TSV file
+                        else:
+                            filtered = 'YES'
+                        
         else:
             self.combined_bolds_list = [] # will combine within one scanning session no matter how many resting state scans collected
             if len(self.layout.get_sessions()) > 0:
