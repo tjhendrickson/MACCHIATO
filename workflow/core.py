@@ -290,7 +290,7 @@ class MACCHIATO_setup:
                         else:
                             filtered = 'YES'
                     else:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(filename))] # traditional outputs
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
                         if not self.bolds > 0:
                             self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                             filtered = 'NO'
@@ -299,7 +299,7 @@ class MACCHIATO_setup:
                     if filtered == 'NO':
                         raise NotImplementedError # TODO: will need to add this, however, the use cases in which they may happen are limited
                         
-                else: # TODO: paths and logic needs to change below
+                else: 
                     if not self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         filtered = 'NO'
@@ -354,9 +354,9 @@ class MACCHIATO_setup:
                         elif self.preprocessing_type == 'ABCD':    
                             if self.denoised_outputs == 'YES':
                                 self.ICA_string='_filtered'
-                                self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='timeseries',extensions="dtseries.nii") if 'desc-filtered' in f.filename]
+                                self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='timeseries',extensions="dtseries.nii") if 'desc-filtered' and 'task-rest' in f.filename]
                                 if not len(self.bolds) > 0:
-                                    self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='Atlas',extensions="dtseries.nii") if 'DCANBOLDProc' in f.filename]
+                                    self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='Atlas',extensions="dtseries.nii") if 'DCANBOLDProc' and 'task-rest' in f.filename if not 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))]
                             else:
                                 self.ICA_string=''
                         if not self.participant_label and not self.session_label:
@@ -366,7 +366,7 @@ class MACCHIATO_setup:
                     elif not self.participant_label and self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='timeseries',extensions="dtseries.nii") if 'desc-filtered' in f.filename]
                     else:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='timeseries',extensions="dtseries.nii") if 'desc-filtered' in f.filename]
+                        
                         self.combined_bolds_list.append(self.bolds)
             else:
                 # retreive subject data based on inputted (or not) participant label
