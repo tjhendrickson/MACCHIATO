@@ -3,7 +3,6 @@ Bootstrap: docker
 From: ubuntu:18.04
 
 %files
-
 run.py /run.py
 tools /tools
 workflow /workflow
@@ -20,7 +19,6 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 export PYTHONPATH=""
 
 %post
-
 # Make local folders/files
 mkdir /share
 mkdir /scratch
@@ -49,14 +47,14 @@ conda install -c conda-forge -y "h5py>=2.9=mpi*"
 
 pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476 argunparse
 
-# Install the validator 0.26.11, along with pybids 0.6.0
+# Install the validator 0.26.11, along with pybids 0.6.5
 apt-get update
 apt-get install -y curl
 curl -sL https://deb.nodesource.com/setup_10.x | bash -
 apt-get remove -y curl
 apt-get install -y nodejs
 npm install -g bids-validator@0.26.11
-pip install git+https://github.com/INCF/pybids.git@0.6.0
+pip install git+https://github.com/INCF/pybids.git@0.6.5
 
 # Install entropy toolbox: https://raphaelvallat.com/entropy/build/html/index.html
 
