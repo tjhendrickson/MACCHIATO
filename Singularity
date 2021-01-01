@@ -45,8 +45,8 @@ conda install -c conda-forge -y statsmodels
 conda install -c conda-forge -y "h5py>=2.9=mpi*"
 
 
-pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476 
-pip3 install argunparse
+/opt/Miniconda3/bin/pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476 
+/opt/Miniconda3/bin/pip install argunparse
 
 # Install the validator 0.26.11, along with pybids 0.6.5
 apt-get update
@@ -55,11 +55,11 @@ curl -sL https://deb.nodesource.com/setup_10.x | bash -
 apt-get remove -y curl
 apt-get install -y nodejs
 npm install -g bids-validator@0.26.11
-pip install git+https://github.com/INCF/pybids.git@0.6.5
+/opt/Miniconda3/bin/pip install git+https://github.com/INCF/pybids.git@0.6.5
 
 # Install entropy toolbox: https://raphaelvallat.com/entropy/build/html/index.html
 
-pip install git+git://github.com/raphaelvallat/entropy.git@3bf3b6e937687e77965ecb5bfdc69e2a0f05936
+/opt/Miniconda3/bin/pip install git+git://github.com/raphaelvallat/entropy.git@3bf3b6e937687e77965ecb5bfdc69e2a0f05936
 
 # Install Connectome Workbench version 1.3.2
 apt-get update
