@@ -45,7 +45,8 @@ conda install -c conda-forge -y statsmodels
 conda install -c conda-forge -y "h5py>=2.9=mpi*"
 
 
-pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476 argunparse
+pip install nibabel cifti PyWavelets nilearn sklearn git+git://github.com/aestrivex/bctpy.git@5f19d5aa9d14bf638ae6baf1b25280cf1222a476 
+pip3 install argunparse
 
 # Install the validator 0.26.11, along with pybids 0.6.5
 apt-get update
