@@ -1,6 +1,6 @@
 #!/opt/Miniconda3/bin/python
 
-import nibabel.cifti2
+import nibabel.cifti2 as ci
 import pandas as pd
 import os
 import cifti
@@ -14,13 +14,13 @@ import scipy.linalg as la
 import bct
 
 class NetworkIO:
-    def __init__(self,output_dir,cifti_file, parcel_file, parcel_name,network_metric,fishers_r_to_z_transform):
+    def __init__(self,output_dir,cifti_data, parcel_file, parcel_name,network_metric,fishers_r_to_z_transform):
         '''
         Parameters
         ----------
         output_dir : string
             Where to output generated data
-        cifti_file : string
+        cifti_data : string or list
             Path to inputted cifti file that will be processed
         parcel_name : string
             Shorthand name of the CIFTI label file. 
@@ -36,10 +36,11 @@ class NetworkIO:
         None.
 
         '''
+
         # path that data will be written to
         self.output_dir = output_dir
         # inputted cifti file
-        self.cifti_file = cifti_file
+        self.cifti_data = cifti_data
         # inputted atlas/parcellation file
         self.parcel_file = parcel_file
         # shorthand name chosen for parcel file
@@ -51,7 +52,7 @@ class NetworkIO:
         if not os.path.isdir(self.output_dir):
             os.makedirs(self.output_dir)
         # determine fmriname
-        self.fmriname = os.path.basename(cifti_file).split('.')[0]
+        self.fmriname = os.path.basename(cifti_data).split('.')[0]
         
         try:
             read_parcel_file = cifti.read(self.parcel_file)
@@ -65,9 +66,22 @@ class NetworkIO:
                         parcel_labels.append(parcel_file_label_tuple[value][0])
         self.parcel_labels = [str(r) for r in parcel_labels]
         
-        # perform tests on inputted cifti file and parcellate timeseries
-        self.cifti_tests()
-        
+        if type(self.cifti_data) == list:
+            example_cifti_img = ci.load(self.cifti_data[0])
+            self.fmri_data_np_arr = np.zeros((example_cifti_img.shape[0],example_cifti_img.shape[1],len(self.cifti_data)))
+            for idx, fmritcs in self.cifti_data:
+                self.cifti_file = fmritcs
+                self.cifti_tests()
+                normalized_data = ((self.parcellated_cifti_load.get_fdata() - self.parcellated_cifti_load.get_fdata().mean())/self.parcellated_cifti_load.get_fdata().std())
+                self.fmri_data_np_arr[:,:,idx] = normalized_data
+            self.df_cifti_load = pd.DataFrame(self.fmri_data_np_arr.mean(axis=2))
+            self.cifti_np_array = self.df_cifti_load.to_numpy()
+
+        else:
+            self.cifti_file = self.cifti_data
+            self.cifti_tests() # perform tests on inputted cifti file and parcellate timeseries
+            self.cifti_np_array = np.array(self.parcellated_cifti_load)
+            self.create_network_matrix()
     def cifti_tests(self):
         # does CIFTI file exist?
         try:
@@ -78,7 +92,7 @@ class NetworkIO:
             
         # is entered CIFTI file actually a CIFTI file?
         try:
-            self.cifti_load = nibabel.cifti2.cifti2.load(self.cifti_file)
+            self.cifti_load = ci.load(self.cifti_file)
         except:
             print("file does not look like a cifti file")
         cifti_file_basename = os.path.basename(self.cifti_file)
@@ -93,8 +107,7 @@ class NetworkIO:
                      self.parcel_file, 
                      "COLUMN", 
                      os.path.join(self.output_dir,cifti_prefix) + "_"+self.parcel_name + self.new_cifti_suffix))
-        parcellated_cifti_file = os.path.join(self.output_dir,cifti_prefix) + "_"+self.parcel_name + self.new_cifti_suffix
-        self.parcellated_cifti_file = parcellated_cifti_file
+        self.parcellated_cifti_file = os.path.join(self.output_dir,cifti_prefix) + "_"+self.parcel_name + self.new_cifti_suffix
         # does CIFTI file exist?
         try:
             read_cifti = open(self.parcellated_cifti_file)
@@ -103,7 +116,7 @@ class NetworkIO:
             print("file does not exist")    
         # is entered CIFTI file actually a CIFTI file?
         try:
-            self.parcellated_cifti_load = nibabel.cifti2.cifti2.load(self.parcellated_cifti_file)
+            self.parcellated_cifti_data = ci.load(self.parcellated_cifti_file).get_fdata()
         except:
             print("file does not look like a cifti file")
 
@@ -114,7 +127,6 @@ class NetworkIO:
         print('\t-Cifti file: ' + self.cifti_file)
         print('\t-Parcel file: ' + self.parcel_file)
         print('\t-Network matrix method/type: ' + str(self.network_metric))
-        cifti_np_array = np.array(self.parcellated_cifti_load.get_fdata())
         if self.network_metric == 'correlation':
             measure = ConnectivityMeasure(kind='correlation',cov_estimator=EmpiricalCovariance())
         elif self.network_metric == 'covariance':
@@ -127,13 +139,13 @@ class NetworkIO:
             measure = GraphicalLassoCV()
             
         if 'sparse' in self.network_metric:
-            measure.fit(cifti_np_array)
+            measure.fit(self.cifti_np_array)
             if 'covariance' in self.network_metric:
                 network_matrix = measure.covariance_
             elif 'precision' in self.network_metric:
                 network_matrix = measure.precision_
         else:
-            network_matrix = measure.fit_transform([cifti_np_array])[0]
+            network_matrix = measure.fit_transform([self.cifti_np_array])[0]
         if self.network_metric == 'correlation' and self.fishers_r_to_z_transform == 'YES':
             self.network_matrix = 0.5*(np.log(1+network_matrix)-np.log(1-network_matrix))
         else:
@@ -147,7 +159,7 @@ class GraphTheoryIO(NetworkIO):
         ----------
         output_dir : TYPE
             DESCRIPTION.
-        cifti_file : TYPE
+        cifti_data : TYPE
             DESCRIPTION.
         parcel_file : TYPE
             DESCRIPTION.
@@ -170,7 +182,7 @@ class GraphTheoryIO(NetworkIO):
         # ensure that data does not have NaNs or Infs, place diagnonal to zero, and restrict floating point to five decimals for stability
 
         # execute parent class NetworkIO to produce connectivity matrix
-        super().__init__(output_dir,cifti_file, parcel_file, parcel_name,network_metric,fishers_r_to_z_transform)
+        super().__init__(output_dir,cifti_data, parcel_file, parcel_name,network_metric,fishers_r_to_z_transform)
         pdb.set_trace()
         self.graph_theory_metric = graph_theory_metric
 

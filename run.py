@@ -9,10 +9,12 @@ Created on Fri Oct 23 16:49:56 2020
 import argparse
 from argunparse  import ArgumentUnparser #https://github.com/mbdevpl/argunparse
 import os
+import sys
+print(os.path.realpath(__file__))
+sys.path.append(os.path.realpath(__file__))
 from workflow.core import MACCHIATO_setup
 import pdb
 import json
-import sys
 
 # specify arguments that MACCHIATO accepts
 parser = argparse.ArgumentParser(description='')

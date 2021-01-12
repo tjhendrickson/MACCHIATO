@@ -23,6 +23,7 @@ import numpy as np
 import cifti
 from pprint import pprint
 from bids.grabbids import BIDSLayout
+import pandas as pd
 
 # specify arguments that MACCHIATO accepts
 
@@ -202,44 +203,44 @@ class MACCHIATO_setup:
                     self.ICA_string="_FIXclean"
                     if self.selected_reg_name == self.msm_all_reg_name:
                         if not self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' and 'task-rest' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' in f.filename and 'task-rest' in f.filename]
                         elif self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' and 'task-rest' in f.filename] 
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' in f.filename and 'task-rest' in f.filename] 
                         elif not self.participant_label and self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' and 'task-rest' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' in f.filename and 'task-rest' in f.filename]
                         else:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' and 'task-rest' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' in f.filename and 'task-rest' in f.filename]
                     else:
                         if not self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii") if '_hp2000_clean' and 'task-rest' and not self.msm_all_reg_name in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii") if '_hp2000_clean' in f.filename and 'task-rest' in f.filename and not self.msm_all_reg_name in f.filename]
                         elif self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='clean',extensions="dtseries.nii") if '_hp2000_clean' and 'task-rest' and not self.msm_all_reg_name in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='clean',extensions="dtseries.nii") if '_hp2000_clean' in f.filename and 'task-rest' in f.filename and not self.msm_all_reg_name in f.filename]
                         elif not self.participant_label and self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='clean',extensions="dtseries.nii",) if self.msm_all_reg_name+'_hp2000_clean' and 'task-rest' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='clean',extensions="dtseries.nii",) if self.msm_all_reg_name+'_hp2000_clean' in f.filename and 'task-rest' in f.filename]
                         else:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' and 'task-rest' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='clean',extensions="dtseries.nii") if self.msm_all_reg_name+'_hp2000_clean' in f.filename and 'task-rest' in f.filename]
 
                 # do not use ICA outputs
                 else:
                     self.ICA_string=""
                     if self.selected_reg_name == self.msm_all_reg_name:
                         if not self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' and 'task-rest' and not 'clean' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' in f.filename and 'task-rest' in f.filename and not 'clean' in f.filename]
                         elif self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' and 'task-rest' and not 'clean' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' in f.filename and 'task-rest' in f.filename and not 'clean' in f.filename]
                         elif not self.participant_label and self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' and 'task-rest' and not 'clean' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' in f.filename and 'task-rest' in f.filename and not 'clean' in f.filename]
                         else:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' and 'task-rest' and not 'clean' in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii") if self.msm_all_reg_name + '_hp2000' in f.filename and 'task-rest' in f.filename and not 'clean' in f.filename]
                     else:
                         if not self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii") if '_hp2000' and not 'clean' and 'task-rest' and not self.msm_all_reg_name in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii") if '_hp2000' in f.filename and not 'clean' in f.filename and 'task-rest' in f.filename and not self.msm_all_reg_name in f.filename]
                         elif self.participant_label and not self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii") if '_hp2000' and 'task-rest' and not 'clean' and not self.msm_all_reg_name in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii") if '_hp2000' in f.filename and 'task-rest' in f.filename and not 'clean' in f.filename and not self.msm_all_reg_name in f.filename]
                         elif not self.participant_label and self.session_label:
-                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii") if '_hp2000' and 'task-rest' and not 'clean' and not self.msm_all_reg_name in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii") if '_hp2000' in f.filename and 'task-rest' in f.filename and not 'clean' in f.filename and not self.msm_all_reg_name in f.filename]
                         else:
-                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii") if '_hp2000' and 'task-rest' and not 'clean' and not self.msm_all_reg_name in f.filename]
+                            self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii") if '_hp2000' in f.filename and 'task-rest' in f.filename and not 'clean' in f.filename and not self.msm_all_reg_name in f.filename]
             elif self.preprocessing_type == 'fmriprep':
                 #use ICA outputs
                 if self.denoised_outputs == 'YES':
@@ -247,50 +248,50 @@ class MACCHIATO_setup:
                     if not self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(type='bold') if 'smoothAROMAnonaggr' in f.filename]
                     elif self.participant_label and not self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='bold') if 'smoothAROMAnonaggr' and 'task-rest' in f.filename]
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='bold') if 'smoothAROMAnonaggr' in f.filename and 'task-rest' in f.filename]
                     elif not self.participant_label and self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='bold') if 'smoothAROMAnonaggr' and 'task-rest' in f.filename]
+                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,type='bold') if 'smoothAROMAnonaggr' in f.filename and 'task-rest' in f.filename]
                     else:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='bold') if 'smoothAROMAnonaggr' and 'task-rest' in f.filename]
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,type='bold') if 'smoothAROMAnonaggr' in f.filename and 'task-rest' in f.filename]
                 # do not use ICA outputs
                 else:
                     self.ICA_string=""
                     if not self.participant_label and not self.session_label:
                         self.bolds = [f.filename for f in self.layout.get(type='bold') if 'preproc' in f.filename]
                     elif self.participant_label and not self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='bold') if 'preproc' and 'task-rest' in f.filename]
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,type='bold') if 'preproc' in f.filename and 'task-rest' in f.filename]
                     elif not self.participant_label and self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(session =self.session_label,type='bold') if 'preproc' and 'task-rest' in f.filename]
+                        self.bolds = [f.filename for f in self.layout.get(session =self.session_label,type='bold') if 'preproc' in f.filename and 'task-rest' in f.filename]
                     else:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session =self.session_label,type='bold') if 'preproc' and 'task-rest' in f.filename]
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session =self.session_label,type='bold') if 'preproc' in f.filename and 'task-rest' in f.filename]
                 self.bolds_ref = [f.filename for f in self.layout.get(type='boldref')]
             elif self.preprocessing_type == 'ABCD':
                  # use filered outputs
                 if self.denoised_outputs == 'YES':
                     self.ICA_string="_filtered"
                     if not self.participant_label and not self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
+                        self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='Atlas') if 'task-rest' in f.filename and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
                         #if not self.bolds > 0:
                         #    self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #    filtered = 'NO' 
                         #else:
                         #filtered = 'YES'
                     elif self.participant_label and not self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' in f.filename and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
                         #if not self.bolds > 0:
                         #    self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #    filtered = 'NO' 
                         #else:
                         #filtered = 'YES'
                     elif not self.participant_label and self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
+                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' in f.filename and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
                         #if not self.bolds > 0:
                         #    self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #    filtered = 'NO' 
                         #else:
                         #filtered = 'YES'
                     else:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='Atlas') if 'task-rest' in f.filename and 'DCANBOLDProc' in f.filename if 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))] # traditional outputs
                         #if not self.bolds > 0:
                         #    self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #    filtered = 'NO'
@@ -301,16 +302,16 @@ class MACCHIATO_setup:
                         
                 else: 
                     if not self.participant_label and not self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
+                        self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",type='timeseries') if 'task-rest' in f.filename and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #filtered = 'NO'
                     elif self.participant_label and not self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' in f.filename and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #filtered = 'NO' 
                     elif not self.participant_label and self.session_label:
-                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
+                        self.bolds = [f.filename for f in self.layout.get(session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' in f.filename and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #filtered = 'NO' 
                     else:
-                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission
+                        self.bolds = [f.filename for f in self.layout.get(subject=self.participant_label,session=self.session_label,extensions="dtseries.nii",type='timeseries') if 'task-rest' in f.filename and 'run' in f.filename] # truncated outputs generated for NDA sumbission
                         #filtered = 'NO'
         else:
             self.combined_bolds_list = [] # will combine within one scanning session no matter how many resting state scans collected
@@ -333,14 +334,14 @@ class MACCHIATO_setup:
                                 if self.selected_reg_name == self.msm_all_reg_name:
                                     self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",subject=subject,session=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
                                 else:
-                                    self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",subject=subject,session=scanning_session) if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
+                                    self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",subject=subject,session=scanning_session) if '_hp2000_clean' in f.filename and not self.msm_all_reg_name in f.filename]
                             # do not use ICA outputs
                             else:
                                 self.ICA_string=""
                                 if self.selected_reg_name == self.msm_all_reg_name:
                                     self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",subject=subject,session=scanning_session) if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
                                 else:
-                                    self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
+                                    self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",subject=subject,session=scanning_session) if '_hp2000' in f.filename and not 'clean' in f.filename and not self.msm_all_reg_name in f.filename]
                         elif self.preprocessing_type == 'fmriprep':
                             #use ICA outputs
                             if self.denoised_outputs == 'YES':
@@ -354,12 +355,12 @@ class MACCHIATO_setup:
                         elif self.preprocessing_type == 'ABCD':    
                             if self.denoised_outputs == 'YES':
                                 self.ICA_string='_filtered'
-                                self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='timeseries',extensions="dtseries.nii") if 'desc-filtered' and 'task-rest' in f.filename]
+                                self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='timeseries',extensions="dtseries.nii") if 'desc-filtered' in f.filename and 'task-rest' in f.filename]
                                 if not len(self.bolds) > 0:
-                                    self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='Atlas',extensions="dtseries.nii") if 'DCANBOLDProc' and 'task-rest' in f.filename if not 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))]
+                                    self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,type='Atlas',extensions="dtseries.nii") if 'DCANBOLDProc' in f.filename and 'task-rest' in f.filename if not 'DCANBOLDProc' in os.path.basename(os.path.dirname(f.filename))]
                             else:
                                 self.ICA_string=''
-                                self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,extensions="dtseries.nii",type='timeseries') if 'task-rest' and 'run' in f.filename] # truncated outputs generated for NDA sumbission    
+                                self.bolds = [f.filename for f in self.layout.get(subject=subject,session=scanning_session,extensions="dtseries.nii",type='timeseries') if 'task-rest' in f.filename and 'run' in f.filename] # truncated outputs generated for NDA sumbission    
                         self.combined_bolds_list.append(self.bolds)
             else:
                 # retreive subject data based on inputted (or not) participant label
@@ -375,14 +376,14 @@ class MACCHIATO_setup:
                             if self.selected_reg_name == self.msm_all_reg_name:
                                 self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",subject=scanning_session) if self.msm_all_reg_name+'_hp2000_clean' in f.filename]
                             else:
-                                self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",subject=scanning_session) if '_hp2000_clean' and not self.msm_all_reg_name in f.filename]
+                                self.bolds = [f.filename for f in self.layout.get(type='clean',extensions="dtseries.nii",subject=scanning_session) if '_hp2000_clean' in f.filename and not self.msm_all_reg_name in f.filename]
                         # do not use ICA outputs
                         else:
                             self.ICA_string=""
                             if self.selected_reg_name == self.msm_all_reg_name:
-                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",subject=scanning_session) if self.msm_all_reg_name + '_hp2000' and not 'clean' in f.filename]
+                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",subject=scanning_session) if self.msm_all_reg_name + '_hp2000' in f.filename and not 'clean' in f.filename]
                             else:
-                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",subject=scanning_session) if '_hp2000' in f.filename and not 'clean' and not self.msm_all_reg_name in f.filename]
+                                self.bolds = [f.filename for f in self.layout.get(extensions="dtseries.nii",subject=scanning_session) if '_hp2000' in f.filename and not 'clean' in f.filename and not self.msm_all_reg_name in f.filename]
                     elif self.preprocessing_type == 'fmriprep':
                         #use ICA outputs
                         if self.denoised_outputs == 'YES':
@@ -428,8 +429,8 @@ class MACCHIATO_setup:
             network_matrix_dset = hdf5.create_dataset(name=self.network_matrix_calculation, shape=(image_count,height,width), dtype='f')
             network_matrix_dset.attrs['parcel_file'] = self.parcellation_file
             network_matrix_dset.attrs['parcel_name'] = self.parcellation_name    
-            for i in range(rank, image_count, comm.size):
-                bold = self.bolds[i]
+            for i in range(rank, image_count, comm.size):                  
+                bold = self.bolds[i] #TODO: will have to parse list properly if the list is not flat. Likely not flat when specifying "--combine_resting_scans Yes"
                 if self.timeseries_processing == 'YES':
                     pass #TODO will be passed to timeseries_metrics.py
                 else:
