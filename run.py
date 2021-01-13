@@ -8,13 +8,13 @@ Created on Fri Oct 23 16:49:56 2020
 
 import argparse
 from argunparse  import ArgumentUnparser #https://github.com/mbdevpl/argunparse
+import json
 import os
 import sys
-print(os.path.realpath(__file__))
+
 sys.path.append(os.path.realpath(__file__))
 from workflow.core import MACCHIATO_setup
-import pdb
-import json
+
 
 # specify arguments that MACCHIATO accepts
 parser = argparse.ArgumentParser(description='')
@@ -47,10 +47,6 @@ parser.add_argument('--network_matrix_calculation', help="What method to employ 
                                                               'dynamic_time_warping','covariance',
                                                               'precision','sparse_inverse_precision',
                                                               'sparse_inverse_covariance'], default='correlation',nargs='+')
-parser.add_argument('--graph_theory',help="Whether or not to output graph theoretical measures. Choices are 'All', 'clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality', and 'NONE'. If there are multiple measures that are of interest but not all are, separate as many choices as interested with a space.", choices = ['All','clustering_coefficient','local_efficiency','strength',
-'node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality','NONE'], default = 'NONE',nargs='+')
-parser.add_argument('--timeseries_processing',help="Modify timeseries prior to generating network matrices. Choices include: 'entropy','alff','falff','wavelet', 'NONE'.",
-                    choices = ['entropy','alff','falff','wavelet','NONE'],default='NONE')
 parser.add_argument('--num_cpus', help='How many concurrent CPUs to use',default=1)
 args = parser.parse_args()
 

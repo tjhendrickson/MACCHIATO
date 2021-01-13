@@ -6,24 +6,23 @@ Created on Thu May  7 17:22:55 2020
 @author: timothy
 """
 from __future__ import print_function
-import os
+import argparse
+from bids.grabbids import BIDSLayout
+import cifti
+from datetime import date
+from functools import partial
+import h5py
+from mpi4py import MPI
 import nibabel
+import numpy as np
+import os
+from pprint import pprint
+import pandas as pd
+from subprocess import Popen, PIPE
 import sys
+
 sys.path.append('../')
 from tools.connectivity_metrics import NetworkIO, GraphTheoryIO
-#from tools.timeseries
-import pdb
-import argparse
-from functools import partial
-from subprocess import Popen, PIPE
-import subprocess
-from mpi4py import MPI
-import h5py
-import numpy as np
-import cifti
-from pprint import pprint
-from bids.grabbids import BIDSLayout
-import pandas as pd
 
 # specify arguments that MACCHIATO accepts
 
@@ -55,10 +54,6 @@ class MACCHIATO_setup:
             Should Fisher's r-to-z transformation be applied?
         network_matrix_calculation : [All, all, correlation, partial_correlation, dynamic_time_warping, covariance, precision, sparse_inverse_precision, sparse_inverse_covariance]
             What method to employ for network matrix estimation.
-        graph_theory : 
-            Whether or not to output graph theoretical measures
-        timeseries_processing : string
-            Whether or not to output wavelet matrices 
 
 
         Raises
@@ -73,14 +68,10 @@ class MACCHIATO_setup:
         layout : bids.grabbids.BIDSLayout object describing BIDS dataset
         denoised_outputs : TYPE
             Parsed denoised_outputs string
-        graph_theory : string or list
-            Parsed graph theory metrics to calculate downstream
         network_matrix_calculation : string or list
             Parsed network metrics to calculate downstream
         combine_resting_scans : string
             Parsed combine_resting_scan string
-        wavelet : string
-            Parsed wavelet string
         bolds: list or list of lists
             Path/s to bold timeseries data which will be processed downstream
         
@@ -89,14 +80,12 @@ class MACCHIATO_setup:
         >>> parameters = MACCHIATO_setup(group = group,
             preprocessing_type = preprocessing_type,
             denoised_outputs = use_denoised_outputs,
-            graph_theory = graph_theory,
             network_matrix_calculation = network_matrix_calculation,
             input_dir = input_dir,
             parcel_name = parcel_name,
             parcel_file = parcel_file,
             fishers_r_to_z_transform = apply_Fishers_r_to_z_transform,
             selected_reg_name = reg_name,
-            timeseries_processing = timeseries_processing,
             combine_resting_scans = combine_resting_scans)
         >>> parameters['denoised_outputs']
         >>> 'YES'
@@ -114,8 +103,6 @@ class MACCHIATO_setup:
         self.selected_reg_name = args_dict.get('--reg_name')
         self.apply_Fishers_r_to_z_transform = args_dict.get('--apply_Fishers_r_to_z_transform')
         self.network_matrix_calculation = args_dict.get('--network_matrix_calculation')
-        self.graph_theory = args_dict.get('--graph_theory')
-        self.timeseries_processing = args_dict.get('--timeseries_processing')
         self.msm_all_reg_name="MSMAll_2_d40_WRN"
         if '--participant_label' in args_dict:
             self.participant_label = args_dict.get('--participant_label')
@@ -148,20 +135,12 @@ class MACCHIATO_setup:
             self.combine_resting_scans = 'YES'
         elif self.combine_resting_scans == 'No' or self.combine_resting_scans == 'no':
             self.combine_resting_scans = 'NO'
-        if not self.timeseries_processing == 'NONE' or self.timeseries_processing == 'yes':
-            self.timeseries_processing = self.timeseries_processing[0]
         
          # use ICA outputs
         if self.denoised_outputs == 'yes' or self.denoised_outputs == 'Yes':
             self.denoised_outputs = 'YES'
         else:
             self.denoised_outputs = 'NO'
-        # if all graph theory metrics are requested, transform arg from string to list
-        if not self.graph_theory == 'NONE' :
-            if self.graph_theory == 'All':
-                self.graph_theory = ['clustering_coefficient','local_efficiency','strength','node_betweenness_centrality', 'edge_betweenness_centrality', 'eigenvector_centrality']
-            else:
-                self.graph_theory = self.graph_theory[0]
                 
         if self.network_matrix_calculation == 'All':
             self.network_matrix_calculation = ['correlation','partial_correlation','dynamic_time_warping',
@@ -177,8 +156,7 @@ class MACCHIATO_setup:
         print('\t-Short hand parcellation name to be used: %s' %str(self.parcellation_name))
         print('\t-Network matrix metric/s to compute: %s' %(self.network_matrix_calculation))
         print("\t-Whether or not to compute Fisher's r-to-z transform to network matrices: %s" %(self.apply_Fishers_r_to_z_transform))
-        print('\t-Timeseries processing method to apply: %s' %(self.timeseries_processing))
-        print('\t-Graph theory metric/s to compute: %s' %(self.graph_theory))
+
         print('\t-Input registration file to be used: %s' %str(self.selected_reg_name))
         print('\t-The preprocessing pipeline that the input comes from: %s' %str(self.preprocessing_type))
         print('\t-Use ICA outputs: %s' %str(self.denoised_outputs))
@@ -423,37 +401,41 @@ class MACCHIATO_setup:
         pprint(" Processing %d images of size %d x %d" % (image_count, width, height))
         
         comm.Barrier()    ### Start Stopwatch ###
-        t_start = MPI.Wtime() 
-        
-        with h5py.File(os.path.join(self.output_dir,'data.hdf5'),'w',driver='mpio',comm=comm) as hdf5:
-            network_matrix_dset = hdf5.create_dataset(name=self.network_matrix_calculation, shape=(image_count,height,width), dtype='f')
-            network_matrix_dset.attrs['parcel_file'] = self.parcellation_file
-            network_matrix_dset.attrs['parcel_name'] = self.parcellation_name    
-            for i in range(rank, image_count, comm.size):                  
-                bold = self.bolds[i] #TODO: will have to parse list properly if the list is not flat. Likely not flat when specifying "--combine_resting_scans Yes"
-                if self.timeseries_processing == 'YES':
-                    pass #TODO will be passed to timeseries_metrics.py
-                else:
+        today=date.today()
+        pretty_today=today.strftime("%b-%d-%Y")
+        with h5py.File(os.path.join(self.output_dir,'MACCHIATO_output_'+pretty_today+'.hdf5'),'w',driver='mpio',comm=comm) as hdf5:
+            if type(self.network_matrix_calculation) == str:
+                network_matrix_dset = hdf5.create_dataset(name=self.network_matrix_calculation, shape=(image_count,height,width), dtype='f')
+                network_matrix_dset.attrs['parcel_file'] = self.parcellation_file
+                network_matrix_dset.attrs['parcel_name'] = self.parcellation_name    
+                for i in range(rank, image_count, comm.size):                  
+                    bold = self.bolds[i]
                     network_metric_init = NetworkIO(output_dir=self.output_dir, 
-                                        cifti_file=bold, 
+                                        cifti_data=bold, 
                                         parcel_file=self.parcellation_file, 
                                         parcel_name=self.parcellation_name, 
                                         network_metric=self.network_matrix_calculation,
                                         fishers_r_to_z_transform=self.apply_Fishers_r_to_z_transform)
-                if self.graph_theory == 'NONE':
-                    if type(self.network_matrix_calculation) == str:
+                    
+                    metric_data = network_metric_init.create_network_matrix()
+                    network_matrix_dset[i,:,:]=metric_data
+            else:
+                for j in self.network_matrix_calculation:
+                    network_matrix_dset = hdf5.create_dataset(name=j, shape=(image_count,height,width), dtype='f')
+                    network_matrix_dset.attrs['parcel_file'] = self.parcellation_file
+                    network_matrix_dset.attrs['parcel_name'] = self.parcellation_name    
+                    for i in range(rank, image_count, comm.size):                  
+                        bold = self.bolds[i]
+                        network_metric_init = NetworkIO(output_dir=self.output_dir, 
+                                            cifti_data=bold, 
+                                            parcel_file=self.parcellation_file, 
+                                            parcel_name=self.parcellation_name, 
+                                            network_metric=self.network_matrix_calculation,
+                                            fishers_r_to_z_transform=self.apply_Fishers_r_to_z_transform)
+                        
                         metric_data = network_metric_init.create_network_matrix()
                         network_matrix_dset[i,:,:]=metric_data
-                    else:
-                        pass
-                else:
-                    GraphTheoryIO(output_dir=self.output_dir, 
-                          cifti_file=bold, 
-                          parcel_file=self.parcellation_file, 
-                          parcel_name=self.parcellation_name,
-                          network_metric=self.network_matrix_calculation,
-                          fishers_r_to_z_transform=self.apply_Fishers_r_to_z_transform,
-                          graph_theory_metric=self.graph_theory)
+                
 if __name__ == '__main__':
     arg_string = sys.argv[1:]
     args_dict = {}

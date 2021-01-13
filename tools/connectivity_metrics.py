@@ -1,17 +1,15 @@
 #!/opt/Miniconda3/bin/python
-
-import nibabel.cifti2 as ci
-import pandas as pd
-import os
-import cifti
-import pdb
-import fcntl as F
-import csv
-import numpy as np
-from nilearn.connectome import ConnectivityMeasure
-from sklearn.covariance import GraphicalLassoCV,EmpiricalCovariance
-import scipy.linalg as la
 import bct
+import cifti
+import csv
+import fcntl as F
+import nibabel.cifti2 as ci
+from nilearn.connectome import ConnectivityMeasure
+import numpy as np
+import os
+import pandas as pd
+import scipy.linalg as la
+from sklearn.covariance import GraphicalLassoCV,EmpiricalCovariance
 
 class NetworkIO:
     def __init__(self,output_dir,cifti_data, parcel_file, parcel_name,network_metric,fishers_r_to_z_transform):
@@ -72,7 +70,7 @@ class NetworkIO:
             for idx, fmritcs in self.cifti_data:
                 self.cifti_file = fmritcs
                 self.cifti_tests()
-                normalized_data = ((self.parcellated_cifti_load.get_fdata() - self.parcellated_cifti_load.get_fdata().mean())/self.parcellated_cifti_load.get_fdata().std())
+                normalized_data = ((self.parcellated_cifti_data - self.parcellated_cifti_data .mean())/self.parcellated_cifti_data .std())
                 self.fmri_data_np_arr[:,:,idx] = normalized_data
             self.df_cifti_load = pd.DataFrame(self.fmri_data_np_arr.mean(axis=2))
             self.cifti_np_array = self.df_cifti_load.to_numpy()
@@ -80,7 +78,7 @@ class NetworkIO:
         else:
             self.cifti_file = self.cifti_data
             self.cifti_tests() # perform tests on inputted cifti file and parcellate timeseries
-            self.cifti_np_array = np.array(self.parcellated_cifti_load)
+            self.cifti_np_array = np.array(self.parcellated_cifti_data )
             self.create_network_matrix()
     def cifti_tests(self):
         # does CIFTI file exist?
